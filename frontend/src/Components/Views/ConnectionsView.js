@@ -1,33 +1,37 @@
 "use client";
-import React, { useState, useEffect } from 'react';
-import { useSelector } from 'react-redux';
-import { Check, X, Search, MoreVertical, Loader } from 'lucide-react';
-import UserProfileModal from '@/Components/UserProfileModal';
+import React, { useState, useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { Check, X, Search, MoreVertical, Loader } from "lucide-react";
+import UserProfileModal from "@/Components/UserProfileModal";
+import { openChat } from "@/redux/features/chatSlice";
 
 export default function ConnectionsView() {
-  const { user } = useSelector((state) => state.auth); // Logged in user (needed for token)
+  const { user } = useSelector((state) => state.auth);
   const { isDark } = useSelector((state) => state.theme);
-  
+
   const [invites, setInvites] = useState([]);
   const [connections, setConnections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState(null);
 
-  // 1. Fetch Real Data on Mount
+  const dispatch = useDispatch();
+
+  // 1. Fetch Network Data
   useEffect(() => {
     const fetchNetwork = async () => {
       try {
-        // Assuming your auth slice stores the token
-        const token = user?.token || localStorage.getItem('token'); 
-
-        const res = await fetch('http://localhost:5000/api/dashboard/network', {
-           headers: { Authorization: `Bearer ${token}` }
+        const token = user?.token || localStorage.getItem("token");
+        const res = await fetch("http://localhost:5000/api/dashboard/network", {
+          headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
-        
+
         if (res.ok) {
-           setInvites(data.invitations || []);
-           setConnections(data.connections || []);
+          // Ensure these are arrays before setting to avoid .map errors
+          setInvites(Array.isArray(data.invitations) ? data.invitations : []);
+          setConnections(
+            Array.isArray(data.connections) ? data.connections : []
+          );
         }
       } catch (err) {
         console.error("Network fetch failed", err);
@@ -35,80 +39,118 @@ export default function ConnectionsView() {
         setLoading(false);
       }
     };
-    fetchNetwork();
+    if (user) fetchNetwork();
   }, [user]);
 
-  // 2. Handle Accept/Reject Logic
-  const handleResponse = async (senderId, action) => {
-    // A. Optimistic Update (Update UI before waiting for Server)
-    const inviteToProcess = invites.find(i => i._id === senderId);
-    
-    // Remove from invites list instantly
-    setInvites(prev => prev.filter(i => i._id !== senderId));
+  // 2. Handle Accept/Reject
+  const handleResponse = async (connectionId, action) => {
+    // Optimistic Update: Remove from UI immediately
+    setInvites((prev) => prev.filter((i) => i._id !== connectionId));
 
-    if (action === 'accept' && inviteToProcess) {
-       // Add to connections list instantly
-       setConnections(prev => [inviteToProcess, ...prev]);
+    if (action === "accept") {
+      // Find the invite data to move it to connections list instantly
+      const inviteData = invites.find((i) => i._id === connectionId);
+      if (inviteData && inviteData.user) {
+        setConnections((prev) => [inviteData.user, ...prev]);
+      }
     }
 
-    // B. Backend Call
     try {
-      const token = user?.token || localStorage.getItem('token');
-      await fetch('http://localhost:5000/api/dashboard/network/respond', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
+      const token = user?.token || localStorage.getItem("token");
+      await fetch("http://localhost:5000/api/dashboard/network/respond", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ senderId, action }),
+        body: JSON.stringify({ connectionId, action }),
       });
     } catch (err) {
       console.error("Action failed", err);
-      // Optional: Revert UI changes if failed
     }
   };
 
-  if (loading) return <div className="p-10 text-center"><Loader className="animate-spin inline text-brand-primary"/> Loading network...</div>;
+  if (loading)
+    return (
+      <div className="p-10 text-center">
+        <Loader className="animate-spin inline text-brand-primary" /> Loading
+        network...
+      </div>
+    );
 
   return (
     <div className="space-y-8 animate-fade-up pb-10">
-      
       {/* 1. INVITATIONS SECTION */}
       <section>
         <div className="flex justify-between items-center mb-4">
-           <h3 className={`font-bold text-lg ${isDark ? 'text-white' : 'text-slate-800'}`}>
-             Invitations <span className="text-brand-primary text-sm ml-2">({invites.length})</span>
-           </h3>
+          <h3
+            className={`font-bold text-lg ${
+              isDark ? "text-white" : "text-slate-800"
+            }`}
+          >
+            Invitations{" "}
+            <span className="text-brand-primary text-sm ml-2">
+              ({invites.length})
+            </span>
+          </h3>
         </div>
 
         {invites.length === 0 ? (
-           <div className={`p-8 text-center rounded-xl border border-dashed ${isDark ? 'border-slate-800 text-slate-500' : 'border-slate-200 text-slate-400'}`}>
-              No pending invitations.
-           </div>
+          <div
+            className={`p-8 text-center rounded-xl border border-dashed ${
+              isDark
+                ? "border-slate-800 text-slate-500"
+                : "border-slate-200 text-slate-400"
+            }`}
+          >
+            No pending invitations.
+          </div>
         ) : (
           <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar snap-x">
             {invites.map((invite) => (
-              <div key={invite._id} className={`snap-start min-w-[280px] w-[280px] p-4 rounded-xl border shadow-sm flex flex-col items-center text-center ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
-                 <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-brand-primary to-purple-500 flex items-center justify-center text-white font-bold text-xl mb-3">
-                    {invite.name[0]}
-                 </div>
-                 <h4 className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>{invite.name}</h4>
-                 <p className="text-xs text-slate-500 mb-4">{invite.institute}</p>
-                 
-                 <div className="flex gap-2 w-full mt-auto">
-                    <button 
-                      onClick={() => handleResponse(invite._id, 'accept')}
-                      className="flex-1 flex items-center justify-center gap-1 bg-brand-primary text-white py-2 rounded-lg text-xs font-bold hover:bg-blue-700 transition-colors"
-                    >
-                      <Check size={14} /> Accept
-                    </button>
-                    <button 
-                      onClick={() => handleResponse(invite._id, 'reject')}
-                      className={`flex-1 flex items-center justify-center gap-1 border py-2 rounded-lg text-xs font-bold hover:opacity-80 ${isDark ? 'border-slate-600 text-slate-300' : 'border-slate-200 text-slate-600'}`}
-                    >
-                      <X size={14} /> Ignore
-                    </button>
-                 </div>
+              <div
+                key={invite._id}
+                className={`snap-start min-w-[280px] w-[280px] p-4 rounded-xl border shadow-sm flex flex-col items-center text-center ${
+                  isDark
+                    ? "bg-slate-800 border-slate-700"
+                    : "bg-white border-slate-100"
+                }`}
+              >
+                {/* FIX: Access invite.user instead of invite directly */}
+                <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-brand-primary to-purple-500 flex items-center justify-center text-white font-bold text-xl mb-3">
+                  {invite.user?.name?.[0] || "?"}
+                </div>
+
+                <h4
+                  className={`font-bold ${
+                    isDark ? "text-white" : "text-slate-900"
+                  }`}
+                >
+                  {invite.user?.name || "Unknown"}
+                </h4>
+                <p className="text-xs text-slate-500 mb-4">
+                  {invite.user?.institute || "Institute"}
+                </p>
+
+                <div className="flex gap-2 w-full mt-auto">
+                  {/* Pass invite._id (Connection ID) not User ID */}
+                  <button
+                    onClick={() => handleResponse(invite._id, "accept")}
+                    className="flex-1 flex items-center justify-center gap-1 bg-brand-primary text-white py-2 rounded-lg text-xs font-bold hover:bg-blue-700 transition-colors"
+                  >
+                    <Check size={14} /> Accept
+                  </button>
+                  <button
+                    onClick={() => handleResponse(invite._id, "reject")}
+                    className={`flex-1 flex items-center justify-center gap-1 border py-2 rounded-lg text-xs font-bold hover:opacity-80 ${
+                      isDark
+                        ? "border-slate-600 text-slate-300"
+                        : "border-slate-200 text-slate-600"
+                    }`}
+                  >
+                    <X size={14} /> Ignore
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -117,44 +159,95 @@ export default function ConnectionsView() {
 
       {/* 2. MY CONNECTIONS SECTION */}
       <section>
-         <div className="flex justify-between items-center mb-4">
-            <h3 className={`font-bold text-lg ${isDark ? 'text-white' : 'text-slate-800'}`}>
-              My Connections <span className="text-xs opacity-50">({connections.length})</span>
-            </h3>
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`}>
-               <Search size={14} className="text-slate-400" />
-               <input type="text" placeholder="Search..." className="bg-transparent text-xs outline-none w-24 md:w-40" />
-            </div>
-         </div>
+        <div className="flex justify-between items-center mb-4">
+          <h3
+            className={`font-bold text-lg ${
+              isDark ? "text-white" : "text-slate-800"
+            }`}
+          >
+            My Connections{" "}
+            <span className="text-xs opacity-50">({connections.length})</span>
+          </h3>
+          <div
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${
+              isDark
+                ? "bg-slate-900 border-slate-700"
+                : "bg-white border-slate-200"
+            }`}
+          >
+            <Search size={14} className="text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search..."
+              className="bg-transparent text-xs outline-none w-24 md:w-40"
+            />
+          </div>
+        </div>
 
-         <div className={`rounded-2xl border overflow-hidden ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
-            {connections.length === 0 ? (
-                <div className="p-8 text-center text-slate-500 text-sm">You haven't connected with anyone yet.</div>
-            ) : connections.map((conn, index) => (
-               <div 
-                 key={conn._id}
-                 onClick={() => setSelectedUser(conn)} 
-                 className={`p-4 flex items-center justify-between cursor-pointer transition-colors group
-                   ${index !== connections.length - 1 ? 'border-b' : ''} 
-                   ${isDark ? 'border-slate-800 hover:bg-slate-800' : 'border-slate-50 hover:bg-slate-50'}`
-                 }
-               >
-                  <div className="flex items-center gap-4">
-                     <div className="w-12 h-12 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center font-bold text-slate-500 dark:text-slate-400">
-                        {conn.name[0]}
-                     </div>
-                     <div>
-                        <h4 className={`font-bold text-sm ${isDark ? 'text-white' : 'text-slate-900'}`}>{conn.name}</h4>
-                        <p className="text-xs text-slate-500">{conn.headline || conn.institute}</p>
-                     </div>
+        <div
+          className={`rounded-2xl border overflow-hidden ${
+            isDark
+              ? "bg-slate-900 border-slate-800"
+              : "bg-white border-slate-100"
+          }`}
+        >
+          {connections.length === 0 ? (
+            <div className="p-8 text-center text-slate-500 text-sm">
+              You haven't connected with anyone yet.
+            </div>
+          ) : (
+            connections.map((conn, index) => (
+              <div
+                key={conn._id}
+                onClick={() => setSelectedUser(conn)}
+                className={`p-4 flex items-center justify-between cursor-pointer transition-colors group
+                   ${index !== connections.length - 1 ? "border-b" : ""} 
+                   ${
+                     isDark
+                       ? "border-slate-800 hover:bg-slate-800"
+                       : "border-slate-50 hover:bg-slate-50"
+                   }`}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center font-bold text-slate-500 dark:text-slate-400">
+                    {conn.name?.[0] || "U"}
                   </div>
-                  <button className="text-slate-400 hover:text-slate-600"><MoreVertical size={18} /></button>
-               </div>
-            ))}
-         </div>
+                  <div>
+                    <h4
+                      className={`font-bold text-sm ${
+                        isDark ? "text-white" : "text-slate-900"
+                      }`}
+                    >
+                      {conn.name}
+                    </h4>
+                    <p className="text-xs text-slate-500">
+                      {conn.headline || conn.institute}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent opening profile modal
+                    dispatch(openChat(conn)); // Open Chat with this connection
+                  }}
+                  className="flex items-center gap-1 bg-brand-primary text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-blue-700 transition-colors"
+                >
+                  Message
+                </button>
+                <button className="text-slate-400 hover:text-slate-600">
+                  <MoreVertical size={18} />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
       </section>
 
-      <UserProfileModal user={selectedUser} isOpen={!!selectedUser} onClose={() => setSelectedUser(null)} />
+      <UserProfileModal
+        user={selectedUser}
+        isOpen={!!selectedUser}
+        onClose={() => setSelectedUser(null)}
+      />
     </div>
   );
 }

@@ -13,8 +13,8 @@ const userSchema = new mongoose.Schema({
   points: { type: Number, default: 0 },
     headline: { type: String }, // New field for profile
   location: { type: String }, // New field for profile
-   connections: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-  invitations: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  //  connections: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  // invitations: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
 }, { timestamps: true });
 
 // --- FIXED MIDDLEWARE HERE ---
