@@ -13,6 +13,7 @@ export default function ConnectionsView() {
   const [connections, setConnections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedConnection, setSelectedConnection] = useState(null);
 
   const dispatch = useDispatch();
 
@@ -199,7 +200,10 @@ export default function ConnectionsView() {
             connections.map((conn, index) => (
               <div
                 key={conn._id}
-                onClick={() => setSelectedUser(conn)}
+                onClick={() => {
+                  setSelectedUser(conn)
+                  setSelectedConnection(conn);
+                }}
                 className={`p-4 flex items-center justify-between cursor-pointer transition-colors group
                    ${index !== connections.length - 1 ? "border-b" : ""} 
                    ${
@@ -244,6 +248,7 @@ export default function ConnectionsView() {
       </section>
 
       <UserProfileModal
+        conn={selectedConnection}
         user={selectedUser}
         isOpen={!!selectedUser}
         onClose={() => setSelectedUser(null)}

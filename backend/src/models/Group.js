@@ -1,0 +1,16 @@
+import mongoose from 'mongoose';
+
+const groupSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  description: { type: String },
+  // UPDATED: Now an array of users
+  admin: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], 
+  members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  privacy: { type: String, enum: ['public', 'private'], default: 'public' },
+  institute: { type: String }, 
+  image: { type: String, default: "" },
+  inviteCode: { type: String, unique: true }, 
+  createdAt: { type: Date, default: Date.now }
+});
+
+export default mongoose.model('Group', groupSchema);
