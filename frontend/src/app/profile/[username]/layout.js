@@ -1,27 +1,44 @@
 "use client";
 import React from "react";
 import { useSelector, useDispatch } from "react-redux";
+import { useRouter } from "next/navigation"; 
 import { toggleTheme } from "@/redux/features/themeSlice";
 import { setActiveTab } from "@/redux/features/navSlice"; 
-import RightSidebar from "@/Components/RightSidebar";
 import ProtectedRoute from "@/Components/ProtectedRoute";
+import RightSidebar from "@/Components/RightSidebar"; // Profile pages usually keep the right sidebar
+import ChatWindow from "@/Components/ChatWindow";
 import { Home, Search, Users, Trophy, Layers, Sun, Moon } from "lucide-react";
 import Link from "next/link";
-import ChatWindow from '@/Components/ChatWindow';
 
-export default function DashboardLayout({ children }) {
+export default function ProfileLayout({ children }) {
   const dispatch = useDispatch();
+  const router = useRouter();
+
+  // 1. Get Global State
   const { user } = useSelector((state) => state.auth);
   const { isDark } = useSelector((state) => state.theme);
   const { activeTab } = useSelector((state) => state.nav); 
 
+  // 2. Define Tabs
   const navItems = [
-    { id: "home", label: "Home", icon: Home },
+    { id: "home", label: "Home", icon: Home, href: "/dashboard" }, 
     { id: "discover", label: "Discover", icon: Search },
     { id: "connections", label: "Connections", icon: Users },
     { id: "hackathons", label: "Hackathons", icon: Trophy },
     { id: "groups", label: "Groups", icon: Layers, href: "/groups" },
   ];
+
+  // 3. Navigation Handler
+  // This ensures clicking "Discover" while on a profile page takes you back to the Dashboard
+  const handleNavigation = (item) => {
+    dispatch(setActiveTab(item.id));
+
+    // If it's a direct link (Groups/Home), let the <Link> component handle it.
+    if (item.href) return;
+
+    // If clicking a Dashboard-only internal tab, force navigate to Dashboard
+    router.push("/dashboard");
+  };
 
   return (
     <ProtectedRoute>
@@ -48,11 +65,10 @@ export default function DashboardLayout({ children }) {
             >
               {isDark ? <Sun size={20} /> : <Moon size={20} />}
             </button>
-            <Link href={`/profile/${user.username}`}>
             <div className="w-9 h-9 rounded-full bg-brand-primary text-white flex items-center justify-center font-bold">
               {user?.name?.[0]}
             </div>
-            </Link>
+            {/* Link to own profile */}
             <Link href={`/profile/${user.username}`}>
               <div className="font-bold hover:underline cursor-pointer hidden sm:block">
                 {user.name}
@@ -61,9 +77,10 @@ export default function DashboardLayout({ children }) {
           </div>
         </nav>
 
-        <div className="pt-16 flex max-w-[1600px] mx-auto pb-16 md:pb-0"> {/* Added pb-16 for mobile nav spacing */}
+        {/* --- MAIN LAYOUT WRAPPER --- */}
+        <div className="pt-16 flex max-w-[1600px] mx-auto pb-16 md:pb-0">
           
-          {/* --- 2. LEFT SIDEBAR (Desktop Only) --- */}
+          {/* --- 2. LEFT SIDEBAR --- */}
           <aside
             className={`hidden md:block w-64 fixed h-[calc(100vh-64px)] overflow-y-auto border-r p-4 transition-colors duration-500
               ${isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"}`}
@@ -72,6 +89,8 @@ export default function DashboardLayout({ children }) {
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id; 
+                
+                // Styling
                 const itemClass = `w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all mb-1 ${
                     isActive
                       ? "bg-brand-primary text-white shadow-lg shadow-blue-500/30"
@@ -80,53 +99,48 @@ export default function DashboardLayout({ children }) {
                       : "text-slate-500 hover:bg-slate-50"
                   }`;
 
+                // Render Logic
                 if (item.href) {
                     return (
                         <Link 
                             key={item.id} 
-                            href={item.href}
+                            href={item.href} 
                             className={itemClass}
-                            onClick={() => dispatch(setActiveTab(item.id))}
+                            onClick={() => handleNavigation(item)}
                         >
-                             <Icon size={20} />
-                             {item.label}
+                             <Icon size={20} /> {item.label}
                         </Link>
                     )
                 }
 
                 return (
-                  <button
-                    key={item.id}
-                    onClick={() => dispatch(setActiveTab(item.id))}
-                    className={itemClass}
-                  >
-                    <Icon size={20} />
-                    {item.label}
+                  <button key={item.id} onClick={() => handleNavigation(item)} className={itemClass}>
+                    <Icon size={20} /> {item.label}
                   </button>
                 );
               })}
             </div>
           </aside>
 
-          {/* --- 3. CENTER CONTENT --- */}
+          {/* --- 3. CENTER CONTENT (Profile) --- */}
           <main className="flex-1 md:ml-64 xl:mr-80 p-4 md:p-8 min-h-[calc(100vh-64px)] max-w-4xl mx-auto w-full">
             {children}
           </main>
           
           <ChatWindow />
           
-          {/* --- 4. RIGHT SIDEBAR (Desktop Only) --- */}
+          {/* --- 4. RIGHT SIDEBAR --- */}
           <RightSidebar />
+
         </div>
 
-        {/* --- 5. MOBILE BOTTOM NAVIGATION (Visible only on small screens) --- */}
+        {/* --- 5. MOBILE NAV --- */}
         <div className={`md:hidden fixed bottom-0 left-0 right-0 border-t z-50 px-6 py-2 flex justify-between items-center transition-colors duration-500
             ${isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"}`}>
             {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
                 
-                // Wrapper for click logic
                 const Content = (
                    <div className="flex flex-col items-center gap-1">
                       <Icon size={24} className={isActive ? "text-brand-primary" : "text-slate-500"} />
@@ -137,18 +151,9 @@ export default function DashboardLayout({ children }) {
                 );
 
                 if (item.href) {
-                  return (
-                    <Link key={item.id} href={item.href} onClick={() => dispatch(setActiveTab(item.id))}>
-                      {Content}
-                    </Link>
-                  );
+                  return <Link key={item.id} href={item.href} onClick={() => handleNavigation(item)}>{Content}</Link>;
                 }
-
-                return (
-                  <button key={item.id} onClick={() => dispatch(setActiveTab(item.id))}>
-                    {Content}
-                  </button>
-                );
+                return <button key={item.id} onClick={() => handleNavigation(item)}>{Content}</button>;
             })}
         </div>
 

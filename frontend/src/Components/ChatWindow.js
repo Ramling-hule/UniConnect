@@ -80,7 +80,7 @@ export default function ChatWindow() {
   if (!isOpen || !activeChatUser) return null;
 
   return (
-    <div className={`fixed bottom-0 right-4 w-80 md:w-96 rounded-t-xl shadow-2xl border z-50 flex flex-col ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`} style={{ height: '450px' }}>
+    <div className={`fixed bottom-12 right-4 w-80 md:w-96 rounded-t-xl shadow-2xl border z-50 flex flex-col ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`} style={{ height: '450px' }}>
       
       {/* Header */}
       <div className="bg-brand-primary text-white p-3 rounded-t-xl flex justify-between items-center cursor-pointer shadow-md">

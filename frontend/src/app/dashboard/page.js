@@ -1,4 +1,3 @@
-  
 "use client";
 import React, { useState } from 'react';
 import { useSelector } from 'react-redux';
@@ -21,11 +20,12 @@ export default function DashboardPage() {
   return (
     <div className="pb-10">
       
-      {/* 1. FLEX CONTAINER (Layout Logic) */}
-      <div className="flex flex-col lg:flex-row gap-8 items-start">
+      {/* 1. GRID CONTAINER */}
+      {/* Mobile: 1 Column | Large: 12 Columns (8 for Feed, 4 for Suggestions) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         
-        {/* --- MAIN CONTENT (Takes Remaining Space) --- */}
-        <div className="flex-1 w-full min-w-0 space-y-6">
+        {/* --- MAIN CONTENT (Takes full width on mobile, 8 cols on desktop) --- */}
+        <div className="lg:col-span-8 w-full min-w-0 space-y-6">
           
           {/* Header Title */}
           <div className="flex justify-between items-center">
@@ -45,40 +45,49 @@ export default function DashboardPage() {
                     </div>
                     <button 
                       onClick={() => setShowModal(true)}
-                      className={`flex-1 text-left px-5 py-3 rounded-full text-sm font-medium transition-all ${isDark ? 'bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700' : 'bg-slate-50 text-slate-500 hover:bg-slate-100 border border-slate-200 hover:border-brand-primary/30'}`}
+                      className={`flex-1 text-left px-5 py-3 rounded-full text-sm font-medium transition-all truncate ${isDark ? 'bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700' : 'bg-slate-50 text-slate-500 hover:bg-slate-100 border border-slate-200 hover:border-brand-primary/30'}`}
                     >
-                      Start a post, {user?.name?.split(' ')[0]}...
+                      Start a post...
                     </button>
                   </div>
                   
-                  <div className="flex gap-4 pl-14">
-                      <button onClick={() => setShowModal(true)} className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-brand-primary transition-colors">
-                          <ImageIcon size={18} className="text-blue-500" /> Media
+                  {/* Buttons wrapper: responsive padding */}
+                  <div className="flex gap-4 pl-0 sm:pl-14 justify-between sm:justify-start">
+                      <button onClick={() => setShowModal(true)} className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-brand-primary transition-colors px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800">
+                          <ImageIcon size={18} className="text-blue-500" /> 
+                          <span>Media</span>
                       </button>
-                      <button className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-brand-primary transition-colors">
-                          <Calendar size={18} className="text-orange-500" /> Event
+                      <button className="flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-brand-primary transition-colors px-2 py-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800">
+                          <Calendar size={18} className="text-orange-500" /> 
+                          <span>Event</span>
                       </button>
                   </div>
-                </div>
+               </div>
 
-                {/* Feed Component */}
-                <Feed newPostTrigger={newPost} />
+               {/* Feed Component */}
+               <Feed newPostTrigger={newPost} />
             </>
           )}
 
-
-       {activeTab === 'discover' && <DiscoverView />}
-       {activeTab === 'hackathons' && <HackathonsView />}
-       
-       {/* Use the new Component here */}
-       {activeTab === 'connections' && <ConnectionsView />}
+          {activeTab === 'discover' && <DiscoverView />}
+          {activeTab === 'hackathons' && <HackathonsView />}
+          {activeTab === 'connections' && <ConnectionsView />}
           
-          {['connections', 'groups'].includes(activeTab) && (
+          {['groups'].includes(activeTab) && (
               <div className={`p-10 rounded-2xl border border-dashed text-center ${isDark ? 'border-slate-800 text-slate-500' : 'border-slate-200 text-slate-400'}`}>
                   <p>Module coming soon.</p>
               </div>
           )}
         </div>
+
+        {/* --- RIGHT SIDE (Suggestions) --- */}
+        {/* Hidden on mobile/tablet, Visible on Large screens */}
+        {activeTab === 'home' && (
+            <div className="hidden lg:block lg:col-span-4 space-y-6">
+                <Suggestions />
+                {/* You can add more side widgets here like 'Trending Topics' */}
+            </div>
+        )}
 
       </div>
 
