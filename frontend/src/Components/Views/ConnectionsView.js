@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { Check, X, Search, MoreVertical, Loader } from "lucide-react";
 import UserProfileModal from "@/Components/UserProfileModal";
 import { openChat } from "@/redux/features/chatSlice";
+import { API_BASE_URL } from "@/utils/config";
 
 export default function ConnectionsView() {
   const { user } = useSelector((state) => state.auth);
@@ -22,7 +23,7 @@ export default function ConnectionsView() {
     const fetchNetwork = async () => {
       try {
         const token = user?.token || localStorage.getItem("token");
-        const res = await fetch("http://localhost:5000/api/dashboard/network", {
+        const res = await fetch(`${API_BASE_URL}/api/dashboard/network`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();

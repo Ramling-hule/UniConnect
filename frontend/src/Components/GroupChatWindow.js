@@ -2,6 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import io from 'socket.io-client';
 import { Send, Paperclip, ArrowLeft, FileText, Video, Image as ImageIcon } from 'lucide-react';
+import { API_BASE_URL } from '@/utils/config';
 
 let socket;
 
@@ -12,11 +13,11 @@ export default function GroupChatWindow({ group, user, onBack }) {
   const scrollRef = useRef();
 
   useEffect(() => {
-     socket = io('http://localhost:5000');
+     socket = io(`${API_BASE_URL}`);
      socket.emit('join_group', group._id);
 
      // Load history
-     fetch(`http://localhost:5000/api/groups/${group._id}/messages`, {
+     fetch(`${API_BASE_URL}/api/groups/${group._id}/messages`, {
          headers: { Authorization: `Bearer ${user.token}` }
      })
      .then(res => res.json())

@@ -11,6 +11,7 @@ import ProfileAbout from '@/Components/Profile/ProfileAbout';
 import ProfileExperience from '@/Components/Profile/ProfileExperience';
 import ProfileSkills from '@/Components/Profile/ProfileSkills';
 import EditProfileModal from '@/Components/EditProfileModal';
+import { API_BASE_URL } from '@/utils/config';
 
 export default function UserProfilePage() {
   const params = useParams(); 
@@ -37,7 +38,7 @@ export default function UserProfilePage() {
         const token = currentUser?.token || localStorage.getItem('token');
         
         // 2. Fetch from the NEW endpoint
-        const res = await fetch(`http://localhost:5000/api/dashboard/u/${usernameParam}`, {
+        const res = await fetch(`${API_BASE_URL}/api/dashboard/u/${usernameParam}`, {
            headers: { Authorization: `Bearer ${token}` }
         });
         

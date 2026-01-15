@@ -4,6 +4,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { X, Send, Minimize2 } from 'lucide-react';
 import { closeChat } from '@/redux/features/chatSlice';
 import io from 'socket.io-client';
+import { API_BASE_URL } from '@/utils/config';
 
 let socket; // Initialize outside to prevent re-connections
 
@@ -25,13 +26,13 @@ export default function ChatWindow() {
   // 1. Initialize Socket & Load History
   useEffect(() => {
     if (isOpen && user && activeChatUser) {
-      socket = io('http://localhost:5000'); // Connect
+      socket = io(`${API_BASE_URL}`); // Connect
       
       const roomId = getRoomId(user._id, activeChatUser._id);
       socket.emit('join_chat', roomId);
 
       // Fetch Previous Messages from DB
-      fetch(`http://localhost:5000/api/messages/${user._id}/${activeChatUser._id}`)
+      fetch(`${API_BASE_URL}/api/messages/${user._id}/${activeChatUser._id}`)
         .then(res => res.json())
         .then(data => setChatHistory(data))
         .catch(err => console.error(err));

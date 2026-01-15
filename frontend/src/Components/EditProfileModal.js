@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { useSelector } from 'react-redux';
 import { X, Loader, Save } from 'lucide-react';
+import { API_BASE_URL } from '@/utils/config';
 
 export default function EditProfileModal({ isOpen, onClose, userData, onUpdate }) {
   const { user } = useSelector((state) => state.auth);
@@ -40,7 +41,7 @@ export default function EditProfileModal({ isOpen, onClose, userData, onUpdate }
          skills: formData.skills.split(',').map(s => s.trim()).filter(s => s) 
       };
 
-      const res = await fetch('http://localhost:5000/api/dashboard/user/profile', {
+      const res = await fetch(`${API_BASE_URL}/api/dashboard/user/profile`, {
         method: 'PUT',
         headers: { 
             'Content-Type': 'application/json',

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { MoreVertical, Edit2, Trash2, MessageSquare, Heart } from 'lucide-react';
 import Link from 'next/link';
 import axios from 'axios';
+import { API_BASE_URL } from '@/utils/config';
 
 export default function ProfileActivity({ posts, isOwnProfile, onDeletePost, currentUser }) {
   const [loadingId, setLoadingId] = useState(null);
@@ -12,7 +13,7 @@ export default function ProfileActivity({ posts, isOwnProfile, onDeletePost, cur
     setLoadingId(postId);
     try {
         const token = currentUser?.token || localStorage.getItem('token');
-        await axios.delete(`http://localhost:5000/api/posts/${postId}`, {
+        await axios.delete(`${API_BASE_URL}/api/posts/${postId}`, {
             headers: { Authorization: `Bearer ${token}` }
         });
         onDeletePost(postId);

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
 import { authStart, authSuccess, authFailure, resetAuthStatus } from '@/redux/features/authSlice';
+import { API_BASE_URL } from '@/utils/config';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -34,7 +35,7 @@ export default function RegisterPage() {
     dispatch(authStart()); 
 
     try {
-      const res = await fetch('http://localhost:5000/api/auth/register', {
+      const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),

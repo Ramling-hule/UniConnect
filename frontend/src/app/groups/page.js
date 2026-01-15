@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { Users, Plus, Lock, Globe } from 'lucide-react';
 import GroupChatWindow from '@/Components/GroupChatWindow'; 
+import { API_BASE_URL } from '@/utils/config';
 
 export default function GroupsPage() {
   const { user } = useSelector((state) => state.auth);
@@ -25,7 +26,7 @@ export default function GroupsPage() {
 
   const fetchGroups = async () => {
      try {
-         const res = await fetch('http://localhost:5000/api/groups', {
+         const res = await fetch(`${API_BASE_URL}/api/groups`, {
             headers: { Authorization: `Bearer ${user.token}` }
          });
          const data = await res.json();
@@ -44,7 +45,7 @@ export default function GroupsPage() {
      if(newImage) formData.append('image', newImage);
 
      try {
-         await fetch('http://localhost:5000/api/groups', {
+         await fetch(`${API_BASE_URL}/api/groups`, {
             method: 'POST',
             headers: { Authorization: `Bearer ${user.token}` },
             body: formData
@@ -63,7 +64,7 @@ export default function GroupsPage() {
 
   const handleJoin = async (groupId) => {
       try {
-          await fetch('http://localhost:5000/api/groups/join', {
+          await fetch(`${API_BASE_URL}/api/groups/join`, {
              method: 'POST',
              headers: { 
                 "Content-Type": "application/json",

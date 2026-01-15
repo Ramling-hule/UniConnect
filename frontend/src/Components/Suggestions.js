@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { UserPlus } from 'lucide-react';
 import { useSelector } from 'react-redux';
+import { API_BASE_URL } from '@/utils/config';
 
 const SuggestionSkeleton = ({ isDark }) => (
   <div className="space-y-4">
@@ -27,7 +28,7 @@ export default function Suggestions() {
   useEffect(() => {
     const fetchSuggestions = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/dashboard/suggestions');
+        const res = await fetch(`${API_BASE_URL}/api/dashboard/suggestions`);
         if (res.ok) setUsers(await res.json());
       } catch (err) {
         console.error(err);

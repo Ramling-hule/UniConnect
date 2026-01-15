@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { UserPlus, Search, Loader, Clock, MessageCircle } from 'lucide-react';
+import { API_BASE_URL } from '@/utils/config';
 
 export default function DiscoverView() {
   const { user } = useSelector((state) => state.auth);
@@ -16,7 +17,7 @@ export default function DiscoverView() {
     const fetchUsers = async () => {
       try {
         const token = user?.token || localStorage.getItem('token');
-        const res = await fetch('http://localhost:5000/api/dashboard/suggestions', {
+        const res = await fetch(`${API_BASE_URL}/api/dashboard/suggestions`, {
            headers: { Authorization: `Bearer ${token}` }
         });
         
@@ -50,7 +51,7 @@ export default function DiscoverView() {
 
     try {
       const token = user?.token || localStorage.getItem('token');
-      await fetch('http://localhost:5000/api/dashboard/connect', {
+      await fetch(`${API_BASE_URL}/api/dashboard/connect`, {
         method: 'POST',
         headers: { 
             'Content-Type': 'application/json',

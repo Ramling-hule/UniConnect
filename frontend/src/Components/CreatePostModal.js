@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { X, Image as ImageIcon, Loader } from 'lucide-react';
 import { useSelector } from 'react-redux';
+import { API_BASE_URL } from '@/utils/config';
 
 export default function CreatePostModal({ isOpen, onClose, onPostCreated }) {
   const { isDark } = useSelector((state) => state.theme);
@@ -33,7 +34,7 @@ export default function CreatePostModal({ isOpen, onClose, onPostCreated }) {
       }
 
       // 2. Send to Backend
-      const res = await fetch("http://localhost:5000/api/dashboard/posts", {
+      const res = await fetch(`${API_BASE_URL}/api/dashboard/posts`, {
         method: "POST",
         // Note: Do NOT set Content-Type header when sending FormData; 
         // the browser sets it automatically with the boundary.

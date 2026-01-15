@@ -4,6 +4,7 @@ import { useSelector } from 'react-redux';
 import { 
   Heart, MessageCircle, Share2, MoreHorizontal, Bookmark, Send 
 } from 'lucide-react';
+import { API_BASE_URL } from '@/utils/config';
 
 // --- SUB-COMPONENT: INDIVIDUAL POST CARD ---
 const PostCard = ({ post, user, isDark }) => {
@@ -26,7 +27,7 @@ const PostCard = ({ post, user, isDark }) => {
     }
 
     try {
-      await fetch(`http://localhost:5000/api/dashboard/posts/${post._id}/like`, {
+      await fetch(`${API_BASE_URL}/api/dashboard/posts/${post._id}/like`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user._id }),
@@ -43,7 +44,7 @@ const PostCard = ({ post, user, isDark }) => {
     if (!commentText.trim()) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/dashboard/posts/${post._id}/comment`, {
+      const res = await fetch(`${API_BASE_URL}/api/dashboard/posts/${post._id}/comment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: user._id, text: commentText }),
