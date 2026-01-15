@@ -40,7 +40,7 @@ app.use(session({
 // --- SOCKET.IO SETUP ---
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:3000", "http://localhost:3001"],
+    origin: ["https://uni-connect-nine.vercel.app"],
     methods: ["GET", "POST"]
   }
 });
