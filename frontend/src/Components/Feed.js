@@ -200,7 +200,7 @@ export default function Feed({ newPostTrigger }) {
   useEffect(() => {
     const fetchPosts = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/dashboard/posts');
+        const res = await fetch(`${API_BASE_URL}/api/dashboard/posts`);
         const data = await res.json();
         setPosts(data);
       } catch (err) {
