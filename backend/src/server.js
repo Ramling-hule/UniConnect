@@ -102,7 +102,7 @@ io.on('connection', (socket) => {
 });
 
 // --- MIDDLEWARE ---
-app.use(cors({ origin: ["http://localhost:3000", "http://localhost:3001"], credentials: true }));
+app.use(cors({ origin: ["https://uni-connect-nine.vercel.app"], credentials: true }));
 app.use(express.json());
 
 // --- ROUTES ---
