@@ -104,7 +104,14 @@ const PostCard = ({ post, user, isDark }) => {
       {/* STATS ROW (Likes/Comments Count) */}
       <div className={`px-5 py-3 flex justify-between text-xs font-medium border-t ${isDark ? 'border-slate-800 text-slate-400' : 'border-slate-50 text-slate-500'}`}>
          <span>{likes.length > 0 ? `${likes.length} Likes` : 'Be the first to like'}</span>
-         <span>{comments.length} Comments</span>
+         
+         {/* 👇 UPDATED: Added onClick to toggle comments */}
+         <span 
+            onClick={() => setShowCommentInput(!showCommentInput)}
+            className="cursor-pointer hover:text-blue-500 hover:underline transition-colors"
+         >
+            {comments.length} Comments
+         </span>
       </div>
 
       {/* ACTION BUTTONS */}
@@ -153,13 +160,13 @@ const PostCard = ({ post, user, isDark }) => {
              <div className="space-y-3 mb-4 max-h-40 overflow-y-auto custom-scrollbar">
                 {comments.map((c, i) => (
                   <div key={i} className="flex gap-2">
-                     <div className="w-6 h-6 rounded-full bg-brand-primary text-white text-xs flex items-center justify-center font-bold">
-                        {c.user?.name?.[0] || "?"}
-                     </div>
-                     <div className={`flex-1 p-2 rounded-lg text-xs ${isDark ? 'bg-slate-800' : 'bg-white border border-slate-200'}`}>
-                        <span className={`font-bold block ${isDark ? 'text-white' : 'text-slate-900'}`}>{c.user?.name || "User"}</span>
-                        <span className={isDark ? 'text-slate-300' : 'text-slate-600'}>{c.text}</span>
-                     </div>
+                      <div className="w-6 h-6 rounded-full bg-brand-primary text-white text-xs flex items-center justify-center font-bold">
+                         {c.user?.name?.[0] || "?"}
+                      </div>
+                      <div className={`flex-1 p-2 rounded-lg text-xs ${isDark ? 'bg-slate-800' : 'bg-white border border-slate-200'}`}>
+                         <span className={`font-bold block ${isDark ? 'text-white' : 'text-slate-900'}`}>{c.user?.name || "User"}</span>
+                         <span className={isDark ? 'text-slate-300' : 'text-slate-600'}>{c.text}</span>
+                      </div>
                   </div>
                 ))}
              </div>

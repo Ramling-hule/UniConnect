@@ -1,26 +1,26 @@
 import { createSlice } from '@reduxjs/toolkit';
 
-// Helper to get user from local storage (if page refreshes)
-const getUserFromStorage = () => {
+// Helper to safely get data from localStorage
+const getFromStorage = (key) => {
   if (typeof window !== 'undefined') {
-    const user = localStorage.getItem('userInfo');
-    return user ? JSON.parse(user) : null;
+    const item = localStorage.getItem(key);
+    return item ? JSON.parse(item) : null;
   }
   return null;
 };
 
 const initialState = {
-  user: getUserFromStorage(),
+  user: getFromStorage('userInfo'),
+  token: typeof window !== 'undefined' ? localStorage.getItem('userToken') : null,
   isLoading: false,
   error: null,
-  success: false, // Useful for showing "Registration Successful" messages
+  success: false,
 };
 
 const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    // Login Actions
     authStart: (state) => {
       state.isLoading = true;
       state.error = null;
@@ -28,24 +28,51 @@ const authSlice = createSlice({
     },
     authSuccess: (state, action) => {
       state.isLoading = false;
-      state.user = action.payload;
       state.success = true;
       state.error = null;
-      localStorage.setItem('userInfo', JSON.stringify(action.payload));
+
+      // --- CRITICAL CHANGE FOR YOUR API ---
+      // Your API returns: { _id, name, username, email, institute, token }
+      // Everything is at the top level of action.payload
+      const { token, _id, name, username, email, institute, profilePicture } = action.payload;
+
+      // 1. Create a clean user object (excluding the token)
+      const userData = {
+        id: _id,            // Map _id to id for easier frontend use
+        name: name,
+        username: username,
+        email: email,
+        token : token,
+        institute: institute,
+        profilePicture: profilePicture || '', // Handle if it exists or not
+      };
+
+      // 2. Update Redux State
+      state.user = userData;
+      state.token = token;
+
+      // 3. Update Local Storage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('userInfo', JSON.stringify(userData));
+        localStorage.setItem('token', token);
+      }
     },
     authFailure: (state, action) => {
       state.isLoading = false;
       state.error = action.payload;
       state.success = false;
     },
-    // Logout Action
     logout: (state) => {
       state.user = null;
+      state.token = null;
       state.success = false;
       state.error = null;
-      localStorage.removeItem('userInfo');
+      
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('userInfo');
+        localStorage.removeItem('userToken');
+      }
     },
-    // Reset Error/Success (useful when switching pages)
     resetAuthStatus: (state) => {
       state.isLoading = false;
       state.error = null;

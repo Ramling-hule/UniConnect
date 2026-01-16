@@ -4,35 +4,37 @@ import User from '../models/User.js';
 export const protect = async (req, res, next) => {
   let token;
 
-  // 1. Check if the "Authorization" header exists and starts with "Bearer"
+  console.log("--- Auth Debug Start ---");
+  console.log("1. Header received:", req.headers.authorization);
+
   if (
     req.headers.authorization &&
     req.headers.authorization.startsWith('Bearer')
   ) {
     try {
-      // 2. Get the token from the header (Format: "Bearer <token>")
       token = req.headers.authorization.split(' ')[1];
+      console.log("2. Token extracted:", token);
 
-      // 3. Verify the token using your secret key
+      // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      console.log("3. Token decoded:", decoded);
 
-      // 4. Find the user by ID (exclude the password field for safety)
-      // We attach the user object to the request (req.user)
+      // Check User
       req.user = await User.findById(decoded.id).select('-password');
+      console.log("4. User found in DB:", req.user ? "Yes" : "No");
 
       if (!req.user) {
         return res.status(401).json({ message: 'Not authorized, user not found' });
       }
 
-      // 5. Move to the next middleware/controller
       next();
     } catch (error) {
-      console.error(error);
-      res.status(401).json({ message: 'Not authorized, token failed' });
+      console.error("!!! Auth Error:", error.message);
+      // Helpful for debugging expiration vs invalid signature
+      res.status(401).json({ message: 'Not authorized, token failed', error: error.message });
     }
-  }
-
-  if (!token) {
-    res.status(401).json({ message: 'Not authorized, no token' });
+  } else {
+      console.log("No Bearer token found in header");
+      res.status(401).json({ message: 'Not authorized, no token' });
   }
 };

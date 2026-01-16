@@ -6,7 +6,7 @@ import { closeChat } from '@/redux/features/chatSlice';
 import io from 'socket.io-client';
 import { API_BASE_URL } from '@/utils/config';
 
-let socket; // Initialize outside to prevent re-connections
+let socket; 
 
 export default function ChatWindow() {
   const dispatch = useDispatch();
@@ -14,39 +14,60 @@ export default function ChatWindow() {
   const { isOpen, activeChatUser } = useSelector((state) => state.chat);
   const { isDark } = useSelector((state) => state.theme);
 
+  // Initialize as empty array
   const [message, setMessage] = useState("");
   const [chatHistory, setChatHistory] = useState([]);
   const scrollRef = useRef(null);
 
-  // Generate a unique Room ID for 2 users (Always consistent: "ID1_ID2" where ID1 < ID2)
+  // FIX 1: Handle ID mismatch. authSlice uses 'id', but raw Mongo objects use '_id'.
+  // We try both to be safe.
+  const currentUserId = user?.id || user?._id;
+  const otherUserId = activeChatUser?._id || activeChatUser?.id;
+
   const getRoomId = (id1, id2) => {
+    if (!id1 || !id2) return "default_room";
     return [id1, id2].sort().join('_');
   };
 
   // 1. Initialize Socket & Load History
   useEffect(() => {
-    if (isOpen && user && activeChatUser) {
-      socket = io(`${API_BASE_URL}`); // Connect
+    // Only proceed if we have valid users and the chat is open
+    if (isOpen && currentUserId && otherUserId) {
+      socket = io(`${API_BASE_URL}`);
       
-      const roomId = getRoomId(user._id, activeChatUser._id);
+      const roomId = getRoomId(currentUserId, otherUserId);
       socket.emit('join_chat', roomId);
 
-      // Fetch Previous Messages from DB
-      fetch(`${API_BASE_URL}/api/messages/${user._id}/${activeChatUser._id}`)
-        .then(res => res.json())
-        .then(data => setChatHistory(data))
-        .catch(err => console.error(err));
+      // Fetch Previous Messages
+      fetch(`${API_BASE_URL}/api/messages/${currentUserId}/${otherUserId}`)
+        .then(res => {
+            if (!res.ok) throw new Error("Failed to fetch");
+            return res.json();
+        })
+        .then(data => {
+            // FIX 2: Defensive Check - Only set state if data is an Array
+            if (Array.isArray(data)) {
+                setChatHistory(data);
+            } else {
+                console.error("API Error: Expected array but got:", data);
+                setChatHistory([]); // Fallback to empty array
+            }
+        })
+        .catch(err => {
+            console.error("Fetch error:", err);
+            setChatHistory([]); // Prevent crash on network error
+        });
 
-      // Listen for incoming messages
       socket.on('receive_message', (newMessage) => {
-         setChatHistory((prev) => [...prev, newMessage]);
+         // FIX 3: Ensure prev is iterable before spreading
+         setChatHistory((prev) => Array.isArray(prev) ? [...prev, newMessage] : [newMessage]);
       });
 
       return () => {
         socket.disconnect();
       };
     }
-  }, [isOpen, user, activeChatUser]);
+  }, [isOpen, currentUserId, otherUserId]);
 
   // 2. Auto-scroll to bottom
   useEffect(() => {
@@ -55,25 +76,26 @@ export default function ChatWindow() {
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!message.trim()) return;
+    if (!message.trim() || !currentUserId || !otherUserId) return;
 
-    const roomId = getRoomId(user._id, activeChatUser._id);
+    const roomId = getRoomId(currentUserId, otherUserId);
     const msgData = {
-      senderId: user._id,
-      receiverId: activeChatUser._id,
+      senderId: currentUserId,
+      receiverId: otherUserId,
       text: message,
       room: roomId,
     };
 
-    // Emit to Server
     socket.emit('send_message', msgData);
 
-    // Optimistically update UI (Add to list immediately)
-    setChatHistory((prev) => [...prev, { 
-       sender: user._id, 
-       text: message, 
-       createdAt: new Date().toISOString() 
-    }]);
+    setChatHistory((prev) => [
+        ...(Array.isArray(prev) ? prev : []), // Safety check
+        { 
+            sender: currentUserId, 
+            text: message, 
+            createdAt: new Date().toISOString() 
+        }
+    ]);
 
     setMessage("");
   };
@@ -87,7 +109,7 @@ export default function ChatWindow() {
       <div className="bg-brand-primary text-white p-3 rounded-t-xl flex justify-between items-center cursor-pointer shadow-md">
          <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-bold text-sm">
-               {activeChatUser.name[0]}
+               {activeChatUser.name?.[0] || "?"}
             </div>
             <div>
                <h4 className="font-bold text-sm">{activeChatUser.name}</h4>
@@ -102,8 +124,9 @@ export default function ChatWindow() {
 
       {/* Messages Body */}
       <div className={`flex-1 overflow-y-auto p-4 space-y-3 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
-         {chatHistory.map((msg, index) => {
-            const isMe = msg.sender === user._id;
+         {/* FIX 4: Optional Chaining (?.) prevents crash if chatHistory is null/undefined */}
+         {chatHistory?.map((msg, index) => {
+            const isMe = msg.sender === currentUserId;
             return (
                <div key={index} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[80%] p-3 rounded-xl text-sm ${
@@ -113,7 +136,7 @@ export default function ChatWindow() {
                   }`}>
                       <p>{msg.text}</p>
                       <span className={`text-[9px] block mt-1 text-right ${isMe ? 'text-blue-100' : 'text-slate-400'}`}>
-                         {new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                         {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                       </span>
                   </div>
                </div>

@@ -3,6 +3,7 @@ import authReducer from './features/authSlice';
 import themeReducer from './features/themeSlice';
 import navReducer from './features/navSlice';
 import chatReducer from './features/chatSlice';
+import notificationReducer from './features/notificationSlice';
 
 export const store = configureStore({
   reducer: {
@@ -10,5 +11,6 @@ export const store = configureStore({
     theme: themeReducer,
     nav: navReducer,
     chat: chatReducer,
+    notifications: notificationReducer,
   },
 });

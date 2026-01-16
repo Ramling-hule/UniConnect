@@ -30,7 +30,7 @@ export default function GroupChatWindow({ group, user, onBack }) {
      });
 
      return () => socket.disconnect();
-  }, [group._id]);
+  }, [group._id, user.token]);
 
   const handleSend = async (e) => {
      e.preventDefault();
@@ -40,21 +40,11 @@ export default function GroupChatWindow({ group, user, onBack }) {
      let fileType = "none";
      let fileName = "";
 
-     // 1. Upload File if exists (Naive implementation, ideally use separate endpoint for speed)
+     // 1. Upload File logic (Placeholder for now)
      if(file) {
-        // You need a generic upload route or integrate cloudinary logic here on client
-        // For now, let's assume we send text first, implementing file upload via Socket is heavy.
-        // Better: Upload to an API endpoint -> get URL -> Send Socket Message
-        
-        const formData = new FormData();
-        formData.append('file', file);
-        
-        // Quick file upload endpoint (Reuse your post logic or create new one)
-        // Assuming you make a generic upload route: /api/upload
-        // For this example, I will skip the actual upload code to keep it concise, 
-        // but you would await fetch('/api/upload') here.
-        alert("File upload requires a generic /api/upload endpoint in backend. Text sent.");
-        fileType = file.type.split('/')[0]; // 'image', 'video', 'application'
+        // Real implementation would upload to backend/Cloudinary here
+        alert("File upload logic needs to be connected to a backend endpoint. Sending text only for now.");
+        fileType = file.type.split('/')[0]; 
         if(file.type.includes('pdf')) fileType = 'pdf';
         fileName = file.name;
      }
@@ -64,7 +54,7 @@ export default function GroupChatWindow({ group, user, onBack }) {
         senderId: user._id,
         groupId: group._id,
         text,
-        fileUrl, // Populate this after upload
+        fileUrl, 
         fileType,
         fileName
      });
@@ -85,15 +75,19 @@ export default function GroupChatWindow({ group, user, onBack }) {
        <div className="p-4 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-950">
           <div className="flex items-center gap-3">
              <button onClick={onBack} className="md:hidden p-2"><ArrowLeft/></button>
-             <div className="w-10 h-10 rounded-full bg-slate-300 overflow-hidden">
-                {group.image && <img src={group.image} className="w-full h-full object-cover"/>}
+             <div className="w-10 h-10 rounded-full bg-slate-300 overflow-hidden flex items-center justify-center">
+                {group.image ? (
+                    <img src={group.image} className="w-full h-full object-cover" alt="Group Icon" />
+                ) : (
+                    <span className="text-slate-500 font-bold">{group.name?.[0]}</span>
+                )}
              </div>
              <div>
                 <h3 className="font-bold dark:text-white">{group.name}</h3>
                 <p className="text-xs text-slate-500">{group.members.length} members</p>
              </div>
           </div>
-          <button onClick={copyInvite} className="text-xs bg-slate-200 dark:bg-slate-800 px-3 py-1 rounded-full dark:text-white">
+          <button onClick={copyInvite} className="text-xs bg-slate-200 dark:bg-slate-800 px-3 py-1 rounded-full dark:text-white hover:bg-slate-300 transition">
              Invite
           </button>
        </div>
@@ -104,11 +98,24 @@ export default function GroupChatWindow({ group, user, onBack }) {
              const isMe = msg.sender._id === user._id;
              return (
                 <div key={i} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                   
+                   {/* SENDER AVATAR (Fixed Logic) */}
                    {!isMe && (
-                      <div className="w-8 h-8 rounded-full bg-slate-200 mr-2 overflow-hidden">
-                          <img src={msg.sender.profilePicture || ""} className="w-full h-full object-cover"/>
+                      <div className="w-8 h-8 rounded-full bg-slate-200 mr-2 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                          {msg.sender.profilePicture ? (
+                              <img 
+                                src={msg.sender.profilePicture} 
+                                className="w-full h-full object-cover"
+                                alt={msg.sender.name}
+                              />
+                          ) : (
+                              <span className="text-xs font-bold text-slate-500">
+                                {msg.sender.name?.[0] || "?"}
+                              </span>
+                          )}
                       </div>
                    )}
+
                    <div className={`max-w-[70%] p-3 rounded-2xl ${
                       isMe ? 'bg-brand-primary text-white rounded-tr-none' : 'bg-slate-100 dark:bg-slate-800 dark:text-slate-200 rounded-tl-none'
                    }`}>
@@ -116,10 +123,10 @@ export default function GroupChatWindow({ group, user, onBack }) {
                       {msg.text && <p>{msg.text}</p>}
                       
                       {/* File Rendering Logic */}
-                      {msg.fileType === 'image' && <img src={msg.fileUrl} className="mt-2 rounded-lg max-h-60"/>}
+                      {msg.fileType === 'image' && <img src={msg.fileUrl} className="mt-2 rounded-lg max-h-60" alt="attachment" />}
                       {msg.fileType === 'video' && <video src={msg.fileUrl} controls className="mt-2 rounded-lg max-h-60"/>}
                       {(msg.fileType === 'pdf' || msg.fileType === 'ppt') && (
-                         <a href={msg.fileUrl} target="_blank" className="flex items-center gap-2 mt-2 bg-black/10 p-2 rounded">
+                         <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 mt-2 bg-black/10 p-2 rounded">
                             <FileText size={16}/> <span className="text-sm underline">{msg.fileName || "Download File"}</span>
                          </a>
                       )}
@@ -136,7 +143,7 @@ export default function GroupChatWindow({ group, user, onBack }) {
 
        {/* Input */}
        <form onSubmit={handleSend} className="p-4 border-t dark:border-slate-800 flex items-center gap-2">
-          <label className="p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full cursor-pointer">
+          <label className="p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full cursor-pointer transition">
              <Paperclip size={20}/>
              <input type="file" className="hidden" onChange={e => setFile(e.target.files[0])}/>
           </label>
@@ -147,7 +154,7 @@ export default function GroupChatWindow({ group, user, onBack }) {
              placeholder="Type a message..."
              className="flex-1 bg-slate-100 dark:bg-slate-800 p-3 rounded-full outline-none dark:text-white"
           />
-          <button type="submit" className="p-3 bg-brand-primary text-white rounded-full">
+          <button type="submit" className="p-3 bg-brand-primary text-white rounded-full hover:bg-blue-700 transition shadow-md shadow-blue-500/20">
              <Send size={20}/>
           </button>
        </form>

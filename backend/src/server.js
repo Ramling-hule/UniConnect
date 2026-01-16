@@ -14,6 +14,7 @@ import redisClient from '../src/config/redis.js';
 import authRoutes from '../src/routes/authRoutes.js';
 import dashboardRoutes from '../src/routes/dashboardRoutes.js';
 import groupRoutes from '../src/routes/groupRoutes.js'; // <--- 1. NEW IMPORT
+import notificationRoutes from '../src/routes/notificationRoutes.js'; // <--- NEW IMPORT
 
 // --- MODEL IMPORTS ---
 import Message from '../src/models/Message.js';
@@ -37,13 +38,16 @@ app.use(session({
     }
 }));
 
+
 // --- SOCKET.IO SETUP ---
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:3000", "http://localhost:3001"],
+    origin: ["http://localhost:3000", "http://localhost:3001", "http://localhost:3002"],
     methods: ["GET", "POST"]
   }
 });
+
+app.set('io', io); // Make io accessible in routes if needed
 
 io.on('connection', (socket) => {
   
@@ -68,6 +72,11 @@ io.on('connection', (socket) => {
   socket.on('join_group', (groupId) => {
     socket.join(groupId);
     console.log(`Socket ${socket.id} joined Group ${groupId}`);
+  });
+
+  socket.on("setup_user", (userId) => {
+    socket.join(userId); // Room Name = User ID
+    console.log(`User ${userId} connected for notifications`);
   });
 
   // Handle Group Messages
@@ -102,13 +111,17 @@ io.on('connection', (socket) => {
 });
 
 // --- MIDDLEWARE ---
-app.use(cors({ origin: ["https://uni-connect-nine.vercel.app/"], credentials: true }));
+app.use(cors({ 
+    origin: ["http://localhost:3000", "http://localhost:3001"], 
+    credentials: true 
+}));
 app.use(express.json());
 
 // --- ROUTES ---
 app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/groups', groupRoutes); // <--- 3. NEW ROUTE REGISTRATION
+app.use('/api/notifications', notificationRoutes);
 
 // --- DM HISTORY ROUTE (Keep your existing one) ---
 app.get('/api/messages/:userId/:otherId', async (req, res) => {

@@ -2,6 +2,7 @@ import User from '../models/User.js';
 import Connection from '../models/Connection.js'; // <--- THIS IMPORT IS CRITICAL
 import Post from '../models/Post.js'; // Ensure Post is imported if you use it in other functions
 import cloudinary from '../config/cloudinary.js';
+import { createNotification } from './notificationController.js';
 
 // --- POSTS LOGIC ---
 export const createPost = async (req, res) => {
@@ -35,15 +36,20 @@ export const createPost = async (req, res) => {
     res.status(500).json({ message: "Post creation failed" });
   }
 };
-
 export const getPosts = async (req, res) => {
   try {
     const posts = await Post.find()
-      .populate('user', 'name institute')
+      .populate('user', 'name profilePicture') // Populates the Main Post Author
+      // 👇 THIS IS THE MISSING PART FOR EXISTING COMMENTS
+      .populate({
+        path: 'comments.user', // Go inside the comments array -> user field
+        select: 'name profilePicture' // Only fetch the name and image
+      })
       .sort({ createdAt: -1 });
-    res.json(posts);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+
+    res.status(200).json(posts);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
 
@@ -108,6 +114,8 @@ export const sendConnectionRequest = async (req, res) => {
     }
 
     await Connection.create({ requester: senderId, recipient: receiverId, status: 'pending' });
+
+  
     res.json({ success: true, message: "Request sent" });
   } catch (error) {
     console.error("Send Request Error:", error);
@@ -247,5 +255,31 @@ export const updateProfile = async (req, res) => {
   } catch (error) {
     console.error("Update Profile Error:", error);
     res.status(500).json({ message: error.message });
+  }
+};
+
+export const getSuggestions = async (req, res) => {
+  try {
+    // 1. Get Current User ID from the request (set by auth middleware)
+    const currentUserId = req.user?.id || req.userId;
+
+    // 2. Get current user's existing connections/following list
+    // We do this so we don't suggest people they already follow
+    const currentUser = await User.findById(currentUserId).select('following');
+    const excludeIds = [...(currentUser?.following || []), currentUserId];
+
+    // 3. Find 3 users who are NOT in the exclude list
+    // We use $nin (Not In) to filter them out
+    const suggestions = await User.find({
+      _id: { $nin: excludeIds }
+    })
+    .select('name institute profilePicture') // Only fetch fields UI needs
+    .limit(3); // strict limit for the widget
+
+    res.status(200).json(suggestions);
+
+  } catch (err) {
+    console.error("Suggestion Error:", err);
+    res.status(500).json({ message: "Failed to fetch suggestions" });
   }
 };

@@ -23,21 +23,40 @@ const SuggestionSkeleton = ({ isDark }) => (
 export default function Suggestions() {
   const { isDark } = useSelector((state) => state.theme);
   const [users, setUsers] = useState([]);
+  const token = useSelector((state) => state.auth.user?.token);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchSuggestions = async () => {
+      // Safety check: Don't fetch if there is no token yet
+      // const token = localStorage.getItem('token');
+      if (!token) return;
+
       try {
-        const res = await fetch(`${API_BASE_URL}/api/dashboard/suggestions`);
-        if (res.ok) setUsers(await res.json());
+        const res = await fetch(`${API_BASE_URL}/api/dashboard/suggestions`, {
+          // 👇 2. Add the Authorization Header
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`, 
+          },
+        });
+
+        if (res.ok) {
+           setUsers(await res.json());
+        } else {
+           // Handle 401 explicitly if needed
+           console.error("Failed to fetch suggestions:", res.status);
+        }
       } catch (err) {
         console.error(err);
       } finally {
         setLoading(false);
       }
     };
+
     fetchSuggestions();
-  }, []);
+  }, [token]);
 
   return (
     <div className={`rounded-xl p-4 border transition-colors ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>

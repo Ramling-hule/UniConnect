@@ -1,7 +1,7 @@
 import express from 'express';
 import upload from '../middlewares/upload.js';
 import { protect } from '../middlewares/authMiddleware.js';
-import { getNetwork, getUserByUsername, respondToInvite, updateProfile } from '../controllers/dashboardController.js';
+import { getNetwork, getSuggestions, getUserByUsername, respondToInvite, updateProfile } from '../controllers/dashboardController.js';
 import { 
   createPost, 
   getPosts, 
@@ -21,7 +21,7 @@ router.put('/posts/:id/like', toggleLike);
 router.post('/posts/:id/comment', addComment);
 router.get('/network', protect, getNetwork);
 router.post('/network/respond', protect, respondToInvite);
-router.get('/suggestions', protect, getDiscoverUsers); 
+router.get('/suggestions', protect, getSuggestions);
 
 // New Route for sending requests
 router.post('/connect', protect, sendConnectionRequest);
