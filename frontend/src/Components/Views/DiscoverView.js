@@ -19,7 +19,7 @@ export default function DiscoverView() {
     const fetchUsers = async () => {
       try {
         const token = user?.token || localStorage.getItem("token");
-        const res = await fetch(`${API_BASE_URL}/api/dashboard/suggestions`, {
+        const res = await fetch(`${API_BASE_URL}/api/dashboard/discover`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
