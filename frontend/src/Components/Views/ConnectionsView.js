@@ -59,7 +59,7 @@ export default function ConnectionsView() {
 
     try {
       const token = user?.token || localStorage.getItem("token");
-      await fetch("http://localhost:5000/api/dashboard/network/respond", {
+      await fetch(`${API_BASE_URL}/api/dashboard/network/respond`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -318,7 +318,7 @@ export const getSuggestions = async (req, res) => {
       _id: { $nin: excludeIds }
     })
     .select('name institute profilePicture') // Only fetch fields UI needs
-    .limit(3); // strict limit for the widget
+    .limit(10); // strict limit for the widget
 
     res.status(200).json(suggestions);
 

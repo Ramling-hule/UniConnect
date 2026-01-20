@@ -22,6 +22,7 @@ router.post('/posts/:id/comment', addComment);
 router.get('/network', protect, getNetwork);
 router.post('/network/respond', protect, respondToInvite);
 router.get('/suggestions', protect, getSuggestions);
+router.get('/discover', protect, getDiscoverUsers);
 
 // New Route for sending requests
 router.post('/connect', protect, sendConnectionRequest);
