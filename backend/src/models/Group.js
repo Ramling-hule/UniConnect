@@ -4,8 +4,9 @@ const groupSchema = new mongoose.Schema({
   name: { type: String, required: true },
   description: { type: String },
   // UPDATED: Now an array of users
-  admin: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], 
+  admins: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+  joinRequests: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }], //
   privacy: { type: String, enum: ['public', 'private'], default: 'public' },
   institute: { type: String }, 
   image: { type: String, default: "" },

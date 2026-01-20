@@ -1,16 +1,18 @@
-import Redis from 'ioredis';
+import { createClient } from 'redis';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-const redis = new Redis(process.env.REDIS_URL, {
-  retryStrategy: (times) => {
-    const delay = Math.min(times * 50, 2000);
-    return delay;
-  }, 
+const redisClient = createClient({
+    password: process.env.REDIS_PASSWORD,
+    socket: {
+        host: process.env.REDIS_HOST,
+        port: process.env.REDIS_PORT
+    }
 });
 
-redis.on('connect', () => console.log('Redis Connected Successfully'));
-redis.on('error', (err) => console.error('Redis Connection Error:', err));
+redisClient.on('error', err => console.log('Redis Client Error', err));
 
-export default redis;
+
+
+export default redisClient;

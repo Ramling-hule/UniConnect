@@ -1,4 +1,6 @@
 import Notification from '../models/Notification.js';
+// 👇 REDIS IMPORT
+import redisClient from '../config/redis.js';
 
 // Helper to Create & Emit
 const createNotification = async (io, { recipientId, senderId, type, message, link }) => {
@@ -12,11 +14,16 @@ const createNotification = async (io, { recipientId, senderId, type, message, li
       link
     });
 
-    // 2. Emit Real-time event (to recipient's room)
-    // Populate sender details so the UI looks good immediately
+    // 2. Emit Real-time event
     const populatedNotif = await newNotif.populate('sender', 'name profilePicture');
     
-    io.to(recipientId).emit("new_notification", populatedNotif);
+    if (io) {
+        io.to(recipientId).emit("new_notification", populatedNotif);
+    }
+
+    // 👇 INVALIDATE CACHE
+    // The recipient has a new notification, so their cached list is outdated.
+    await redisClient.del(`notifications:${recipientId}`);
     
     return newNotif;
   } catch (err) {
@@ -27,10 +34,22 @@ const createNotification = async (io, { recipientId, senderId, type, message, li
 // API: Get User's Notifications
 const getNotifications = async (req, res) => {
   try {
-    const notifs = await Notification.find({ recipient: req.user.id })
+    const userId = req.user.id;
+
+    // 👇 CHECK CACHE
+    const cachedNotifs = await redisClient.get(`notifications:${userId}`);
+    if (cachedNotifs) {
+        return res.json(JSON.parse(cachedNotifs));
+    }
+
+    const notifs = await Notification.find({ recipient: userId })
       .sort({ createdAt: -1 })
       .populate('sender', 'name profilePicture')
       .limit(20);
+
+    // 👇 SAVE CACHE (Short TTL, e.g., 5 mins)
+    await redisClient.setEx(`notifications:${userId}`, 300, JSON.stringify(notifs));
+
     res.json(notifs);
   } catch (err) {
     res.status(500).json(err);
@@ -43,24 +62,24 @@ const sendNotificationAPI = async (req, res) => {
   const senderId = req.user.id;
 
   try {
-    const io = req.app.get('io'); // Get Socket Instance
+    const io = req.app.get('io'); 
 
-    // Create Entry
     const newNotif = await Notification.create({
       recipient: recipientId,
       sender: senderId,
-      type, // e.g., 'connection_request'
+      type, 
       message,
       link
     });
 
-    // Populate Sender Details for UI
     const populatedNotif = await newNotif.populate('sender', 'name profilePicture');
 
-    // Emit Real-time Event to Recipient
     if (io) {
       io.to(recipientId).emit("new_notification", populatedNotif);
     }
+
+    // 👇 INVALIDATE CACHE
+    await redisClient.del(`notifications:${recipientId}`);
 
     res.status(201).json(populatedNotif);
   } catch (err) {
@@ -76,6 +95,11 @@ const markRead = async (req, res) => {
       { recipient: req.user.id, isRead: false },
       { $set: { isRead: true } }
     );
+
+    // 👇 INVALIDATE CACHE
+    // The "isRead" status changed, so the cached list is wrong.
+    await redisClient.del(`notifications:${req.user.id}`);
+
     res.json({ success: true });
   } catch (err) {
     res.status(500).json(err);

@@ -5,7 +5,7 @@ const NotificationSchema = new mongoose.Schema({
   sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Optional (e.g., system alerts)
   type: { 
     type: String, 
-    enum: ['connection_request', 'connection_accepted', 'message', 'like', 'comment'], 
+    enum: ['connection_request', 'connection_accepted', 'message', 'like', 'comment', 'GROUP_JOIN_REQUEST', "GROUP_APPROVED"], 
     required: true 
   },
   message: { type: String }, // Optional custom text

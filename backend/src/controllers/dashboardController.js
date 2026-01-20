@@ -1,10 +1,12 @@
 import User from '../models/User.js';
-import Connection from '../models/Connection.js'; // <--- THIS IMPORT IS CRITICAL
-import Post from '../models/Post.js'; // Ensure Post is imported if you use it in other functions
+import Connection from '../models/Connection.js'; 
+import Post from '../models/Post.js'; 
 import cloudinary from '../config/cloudinary.js';
-import { createNotification } from './notificationController.js';
+// 👇 REDIS CLIENT IMPORT
+import redisClient from '../config/redis.js'; 
 
 // --- POSTS LOGIC ---
+
 export const createPost = async (req, res) => {
   try {
     const { text, userId } = req.body;
@@ -30,22 +32,41 @@ export const createPost = async (req, res) => {
       image: imageUrl,
     });
     await newPost.populate('user', 'name institute'); 
+    
+    // 👇 INVALIDATE CACHE: New post added, so the cached feed is old.
+    await redisClient.del('posts:all');
+
     res.status(201).json(newPost);
   } catch (error) {
     console.error("Create Post Error:", error);
     res.status(500).json({ message: "Post creation failed" });
   }
 };
+
 export const getPosts = async (req, res) => {
   try {
+    // 👇 CHECK CACHE: See if the feed is already in Redis
+    const cachedPosts = await redisClient.get('posts:all');
+    
+    if (cachedPosts) {
+      // Return cached data immediately (much faster)
+      return res.status(200).json(JSON.parse(cachedPosts));
+    }
+
+    // If cache miss, fetch from Database
     const posts = await Post.find()
-      .populate('user', 'name profilePicture') // Populates the Main Post Author
-      // 👇 THIS IS THE MISSING PART FOR EXISTING COMMENTS
+      .populate('user', 'name profilePicture') 
       .populate({
-        path: 'comments.user', // Go inside the comments array -> user field
-        select: 'name profilePicture' // Only fetch the name and image
+        path: 'comments.user', 
+        select: 'name profilePicture' 
       })
       .sort({ createdAt: -1 });
+
+    // 👇 UPDATE CACHE: Save result to Redis for 1 hour (3600 seconds)
+    // We verify 'posts' has data before caching to avoid caching empty states unnecessarily
+    if (posts.length > 0) {
+        await redisClient.setEx('posts:all', 3600, JSON.stringify(posts));
+    }
 
     res.status(200).json(posts);
   } catch (err) {
@@ -67,6 +88,10 @@ export const toggleLike = async (req, res) => {
         post.likes.push(userId);
       }
       await post.save();
+
+      // 👇 INVALIDATE CACHE: Likes changed, feed needs update
+      await redisClient.del('posts:all');
+
       res.json(post.likes);
     } catch (error) {
       res.status(500).json({ message: error.message });
@@ -84,6 +109,10 @@ export const addComment = async (req, res) => {
       await post.save();
       
       const updatedPost = await Post.findById(id).populate("comments.user", "name");
+
+      // 👇 INVALIDATE CACHE: Comments changed, feed needs update
+      await redisClient.del('posts:all');
+
       res.json(updatedPost.comments);
     } catch (error) {
       res.status(500).json({ message: error.message });
@@ -91,6 +120,8 @@ export const addComment = async (req, res) => {
 };
 
 // --- NETWORK / CONNECTION LOGIC ---
+// (Note: Connections are highly dynamic/personalized, so we usually don't cache them
+// to avoid complexity with invalidation, but you could if performance demands it.)
 
 export const sendConnectionRequest = async (req, res) => {
   try {
@@ -223,18 +254,25 @@ export const getUserByUsername = async (req, res) => {
   try {
     const { username } = req.params;
     
-    // Find user where "username" field matches (Case insensitive is better)
+    // 👇 CHECK CACHE: Try to find this specific profile in Redis
+    const cachedUser = await redisClient.get(`profile:${username}`);
+    if (cachedUser) {
+        return res.json(JSON.parse(cachedUser));
+    }
+
+    // Find user where "username" field matches
     const user = await User.findOne({ username }).select('-password');
     
     if (!user) return res.status(404).json({ message: "User not found" });
     
+    // 👇 UPDATE CACHE: Save profile to Redis for 1 hour
+    await redisClient.setEx(`profile:${username}`, 3600, JSON.stringify(user));
+
     res.json(user);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
-
-// ... existing imports
 
 // Update MY Profile
 export const updateProfile = async (req, res) => {
@@ -251,6 +289,12 @@ export const updateProfile = async (req, res) => {
     // The { new: true } option ensures we get back the updated document
     const user = await User.findByIdAndUpdate(userId, updates, { new: true }).select('-password');
     
+    // 👇 INVALIDATE CACHE: Profile changed, so delete the old cached version
+    // We need the username to know which key to delete
+    if (user && user.username) {
+        await redisClient.del(`profile:${user.username}`);
+    }
+
     res.json(user);
   } catch (error) {
     console.error("Update Profile Error:", error);

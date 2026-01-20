@@ -24,7 +24,11 @@ connectDB();
 
 const app = express();
 const server = http.createServer(app);
+await redisClient.connect();
 
+await redisClient.set('key', 'value');
+const value = await redisClient.get('key');
+console.log(value); // Should print 'value'
 // --- SESSION MIDDLEWARE (Existing) ---
 app.use(session({
     store: new RedisStore({ client: redisClient }),
