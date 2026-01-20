@@ -12,7 +12,7 @@ app.use(helmet());
 app.use(morgan('dev')); 
 
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: "https://uni-connect-nine.vercel.app",
   credentials: true,
 }));
 
