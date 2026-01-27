@@ -165,4 +165,3 @@ export default function GroupsLayout({ children }) {
   );
 }
 
-remove all related to notification system
