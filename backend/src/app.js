@@ -14,7 +14,7 @@ app.use(helmet());
 app.use(morgan('dev')); 
 
 app.use(cors({
-  origin: "http://localhost:3000",
+  origin: ["https://uniconnect-tkgb.onrender.com"],
   credentials: true,
 }));
 
