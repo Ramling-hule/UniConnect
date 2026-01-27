@@ -14,13 +14,10 @@ export default function ChatWindow() {
   const { isOpen, activeChatUser } = useSelector((state) => state.chat);
   const { isDark } = useSelector((state) => state.theme);
 
-  // Initialize as empty array
   const [message, setMessage] = useState("");
   const [chatHistory, setChatHistory] = useState([]);
   const scrollRef = useRef(null);
 
-  // FIX 1: Handle ID mismatch. authSlice uses 'id', but raw Mongo objects use '_id'.
-  // We try both to be safe.
   const currentUserId = user?.id || user?._id;
   const otherUserId = activeChatUser?._id || activeChatUser?.id;
 
@@ -29,37 +26,32 @@ export default function ChatWindow() {
     return [id1, id2].sort().join('_');
   };
 
-  // 1. Initialize Socket & Load History
   useEffect(() => {
-    // Only proceed if we have valid users and the chat is open
     if (isOpen && currentUserId && otherUserId) {
       socket = io(`${API_BASE_URL}`);
       
       const roomId = getRoomId(currentUserId, otherUserId);
       socket.emit('join_chat', roomId);
 
-      // Fetch Previous Messages
       fetch(`${API_BASE_URL}/api/messages/${currentUserId}/${otherUserId}`)
         .then(res => {
             if (!res.ok) throw new Error("Failed to fetch");
             return res.json();
         })
         .then(data => {
-            // FIX 2: Defensive Check - Only set state if data is an Array
             if (Array.isArray(data)) {
                 setChatHistory(data);
             } else {
                 console.error("API Error: Expected array but got:", data);
-                setChatHistory([]); // Fallback to empty array
+                setChatHistory([]); 
             }
         })
         .catch(err => {
             console.error("Fetch error:", err);
-            setChatHistory([]); // Prevent crash on network error
+            setChatHistory([]); 
         });
 
       socket.on('receive_message', (newMessage) => {
-         // FIX 3: Ensure prev is iterable before spreading
          setChatHistory((prev) => Array.isArray(prev) ? [...prev, newMessage] : [newMessage]);
       });
 
@@ -69,7 +61,6 @@ export default function ChatWindow() {
     }
   }, [isOpen, currentUserId, otherUserId]);
 
-  // 2. Auto-scroll to bottom
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatHistory]);
@@ -89,7 +80,7 @@ export default function ChatWindow() {
     socket.emit('send_message', msgData);
 
     setChatHistory((prev) => [
-        ...(Array.isArray(prev) ? prev : []), // Safety check
+        ...(Array.isArray(prev) ? prev : []),
         { 
             sender: currentUserId, 
             text: message, 

@@ -1,17 +1,35 @@
-import express, { request } from 'express';
+import express from 'express';
+import multer from 'multer';
 import { protect } from '../middlewares/authMiddleware.js';
-import { createGroup, getGroups, joinGroup, getGroupMessages , requestToJoinGroup, getGroupRequests, handleJoinRequest, getGroupById} from '../controllers/groupController.js';
-import upload from '../middlewares/upload.js'; // Ensure you have multer config
+import {
+    createGroup,
+    getGroups,
+    getGroupById,
+    requestToJoinGroup,
+    handleJoinRequest,
+    getGroupRequests,
+    joinGroup,
+    getGroupMessages,
+    getGroupMedia,
+    deleteGroup
+} from '../controllers/groupController.js';
 
 const router = express.Router();
 
-router.post('/', protect, upload.single('image'), createGroup);
+// Multer Config (Same as uploadRoutes, needed here for Group Icon)
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
+
+// Routes
+router.post('/', protect, upload.single('image'), createGroup); // Create Group with Icon
 router.get('/', protect, getGroups);
-router.post('/join', protect, joinGroup);
-router.get('/:groupId/messages', protect, getGroupMessages);
-router.post('/request-join', protect, requestToJoinGroup);
-router.get('/:groupId/requests', protect, getGroupRequests);
+router.post('/join', protect, requestToJoinGroup);
+router.post('/join-public', protect, joinGroup);
 router.post('/handle-request', protect, handleJoinRequest);
 router.get('/:id', protect, getGroupById);
+router.get('/:groupId/requests', protect, getGroupRequests);
+router.get('/:groupId/messages', protect, getGroupMessages);
+router.get('/:groupId/media', protect, getGroupMedia);
+router.delete('/:groupId', protect, deleteGroup);
 
 export default router;

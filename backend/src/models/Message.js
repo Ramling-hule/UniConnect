@@ -8,7 +8,7 @@ const messageSchema = new mongoose.Schema({
   
   text: { type: String },
   fileUrl: { type: String }, // Cloudinary URL
-  fileType: { type: String, enum: ['image', 'video', 'pdf', 'ppt', 'none'], default: 'none' },
+  fileType: { type: String, enum: ['image', 'video', 'pdf', 'ppt', 'none', 'file'], default: 'none' },
   fileName: { type: String }, // Original name of the file
   
   createdAt: { type: Date, default: Date.now }

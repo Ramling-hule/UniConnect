@@ -1,11 +1,10 @@
 import Group from '../models/Group.js';
 import Message from '../models/Message.js';
 import User from '../models/User.js';
-import cloudinary from '../config/cloudinary.js';
-import { v4 as uuidv4 } from 'uuid';
 import Notification from '../models/Notification.js'; 
-// 👇 REDIS IMPORT
+import cloudinary from '../config/cloudinary.js';
 import redisClient from '../config/redis.js';
+import { v4 as uuidv4 } from 'uuid';
 
 // --- HELPER FUNCTION ---
 const formatUrl = (url) => {
@@ -21,7 +20,7 @@ export const createGroup = async (req, res) => {
     const creatorId = req.user._id;
     let imageUrl = "";
 
-    // 1. Upload Group Icon
+    // 1. Upload Group Icon (Specific logic for Group creation)
     if (req.file) {
        const uploadResult = await new Promise((resolve, reject) => {
           const stream = cloudinary.uploader.upload_stream(
@@ -112,7 +111,6 @@ export const getGroups = async (req, res) => {
         });
 
         // 👇 SAVE TO REDIS (Short expiry: 2 minutes)
-        // Group lists change often (new public groups, etc.), so keep TTL short.
         await redisClient.setEx(`groups:list:${userId}`, 120, JSON.stringify(formattedGroups));
 
         res.json(formattedGroups);
@@ -121,6 +119,38 @@ export const getGroups = async (req, res) => {
     }
 };
 
+// --- GET SINGLE GROUP ---
+// GET /api/groups/:id
+// src/controllers/groupController.js
+
+// ... (other imports)
+
+export const getGroupById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // 1. Fetch from DB with FULL POPULATION
+    const group = await Group.findById(id)
+      .populate('joinRequests', 'name profilePicture instituteName headline') 
+      .populate('admins', 'name profilePicture') 
+      // 👇 THIS IS THE KEY FIX: We explicitly get name, pic, and institute
+      .populate('members', 'name profilePicture instituteName'); 
+
+    if (!group) return res.status(404).json({ message: "Group not found" });
+
+    // 2. Save to Redis
+    await redisClient.setEx(`group:${id}`, 1800, JSON.stringify(group));
+
+    res.status(200).json(group);
+
+  } catch (error) {
+    console.error("Error fetching group:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+// ... (rest of the controller)
+// --- JOIN REQUESTS ---
 export const requestToJoinGroup = async (req, res) => {
   try {
     const { groupId } = req.body;
@@ -140,8 +170,7 @@ export const requestToJoinGroup = async (req, res) => {
     group.joinRequests.push(requesterId);
     await group.save();
 
-    // 👇 INVALIDATE CACHE: Group details (joinRequests array) changed
-    // Admins viewing the group details need to see this request immediately
+    // 👇 INVALIDATE CACHE
     await redisClient.del(`group:${groupId}`);
     await redisClient.del(`group_requests:${groupId}`);
 
@@ -166,37 +195,6 @@ export const requestToJoinGroup = async (req, res) => {
   }
 };
 
-// GET /api/groups/:id
-export const getGroupById = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    // 👇 CHECK REDIS CACHE
-    const cachedGroup = await redisClient.get(`group:${id}`);
-    if (cachedGroup) {
-         return res.status(200).json(JSON.parse(cachedGroup));
-    }
-
-    const group = await Group.findById(id)
-      .populate('joinRequests', 'name profilePicture instituteName headline') 
-      .populate('admins', '_id name') 
-      .populate('members', 'name profilePicture'); 
-
-    if (!group) return res.status(404).json({ message: "Group not found" });
-
-    // 👇 SAVE TO REDIS (Expire in 30 mins)
-    await redisClient.setEx(`group:${id}`, 1800, JSON.stringify(group));
-
-    res.status(200).json(group);
-
-  } catch (error) {
-    console.error("Error fetching group details:", error);
-    if (error.name === 'CastError') return res.status(400).json({ message: "Invalid Group ID" });
-    res.status(500).json({ message: "Server error" });
-  }
-};
-
-// POST /api/groups/handle-request
 export const handleJoinRequest = async (req, res) => {
   try {
     const { groupId, requesterId, action } = req.body;
@@ -227,7 +225,6 @@ export const handleJoinRequest = async (req, res) => {
       });
       
       // 👇 INVALIDATE REQUESTER'S GROUP LIST
-      // They are now a member, so their "My Groups" list must update
       await redisClient.del(`groups:list:${requesterId}`);
     }
 
@@ -238,7 +235,6 @@ export const handleJoinRequest = async (req, res) => {
     await group.save();
 
     // 👇 INVALIDATE GROUP CACHE
-    // Member list and Request list changed.
     await redisClient.del(`group:${groupId}`);
     await redisClient.del(`group_requests:${groupId}`);
 
@@ -250,7 +246,6 @@ export const handleJoinRequest = async (req, res) => {
   }
 };
 
-// GET /api/groups/:groupId/requests
 export const getGroupRequests = async (req, res) => {
   try {
     const { groupId } = req.params;
@@ -282,7 +277,7 @@ export const getGroupRequests = async (req, res) => {
   }
 };
 
-// --- JOIN GROUP (Direct Join for Public) ---
+// --- JOIN GROUP DIRECTLY ---
 export const joinGroup = async (req, res) => {
     try {
         const { groupId } = req.body;
@@ -296,30 +291,24 @@ export const joinGroup = async (req, res) => {
             await group.save();
 
             // 👇 INVALIDATE CACHE
-            // 1. The Group details changed (new member)
             await redisClient.del(`group:${groupId}`);
-            // 2. The User's list of groups changed (new entry)
             await redisClient.del(`groups:list:${userId}`);
 
             res.json({ success: true, message: "Joined successfully" });
         } else {
             res.status(400).json({ message: "Already a member" });
         }
-
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
 };
 
-// --- GET GROUP CHAT HISTORY ---
+// --- CHAT MESSAGES ---
 export const getGroupMessages = async (req, res) => {
     try {
         const { groupId } = req.params;
 
-        // 
-
-        // 👇 CHECK CACHE (Optional but recommended for chat load speed)
-        // Note: You must ensure your 'sendMessage' controller clears this key!
+        // 👇 CHECK CACHE
         const cachedMessages = await redisClient.get(`group_messages:${groupId}`);
         if (cachedMessages) {
              return res.json(JSON.parse(cachedMessages));
@@ -337,11 +326,74 @@ export const getGroupMessages = async (req, res) => {
             }
         }));
 
-        // 👇 SAVE CACHE (Short TTL because chat is live)
+        // 👇 SAVE CACHE (Short TTL)
         await redisClient.setEx(`group_messages:${groupId}`, 60, JSON.stringify(formattedMessages));
 
         res.json(formattedMessages);
     } catch (error) {
         res.status(500).json({ message: error.message });
+    }
+};
+
+// --- GET GROUP MEDIA (FILES & IMAGES) ---
+export const getGroupMedia = async (req, res) => {
+    try {
+        const { groupId } = req.params;
+
+        // Find messages in this group that have a fileUrl
+        // We select specific fields to keep the query light
+        const mediaMessages = await Message.find({ 
+            group: groupId, 
+            fileUrl: { $ne: "" } // $ne means "not equal"
+        })
+        .populate('sender', 'name')
+        .select('fileUrl fileType fileName createdAt sender')
+        .sort({ createdAt: -1 }); // Newest first
+
+        res.json(mediaMessages);
+    } catch (error) {
+        console.error("Get Media Error:", error);
+        res.status(500).json({ message: "Failed to fetch media" });
+    }
+};
+
+// --- DELETE GROUP ---
+export const deleteGroup = async (req, res) => {
+    try {
+        const { groupId } = req.params;
+        const userId = req.user._id;
+
+        const group = await Group.findById(groupId);
+        if (!group) return res.status(404).json({ message: "Group not found" });
+
+        // Check if user is an admin
+        if (!group.admins.includes(userId)) {
+            return res.status(403).json({ message: "Only admins can delete the group" });
+        }
+
+        // 1. Delete all messages
+        await Message.deleteMany({ group: groupId });
+
+        // 2. Delete all notifications related to this group
+        await Notification.deleteMany({ relatedId: groupId });
+
+        // 3. Delete the group itself
+        await Group.findByIdAndDelete(groupId);
+
+        // 4. Clear Redis Cache
+        await redisClient.del(`group:${groupId}`);
+        await redisClient.del(`group_messages:${groupId}`);
+        await redisClient.del(`group_requests:${groupId}`);
+        
+        // Invalidate list cache for all members (heavy operation, but necessary)
+        // Ideally, use a pattern match or iterate if you have a huge userbase.
+        // For now, we rely on TTL expiry for other users, but we clear the deleter's cache.
+        await redisClient.del(`groups:list:${userId}`);
+
+        res.json({ message: "Group deleted successfully" });
+
+    } catch (error) {
+        console.error("Delete Group Error:", error);
+        res.status(500).json({ message: "Server error" });
     }
 };

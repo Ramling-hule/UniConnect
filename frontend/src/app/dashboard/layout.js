@@ -6,12 +6,13 @@ import { setActiveTab } from "@/redux/features/navSlice";
 import { setNotifications, addNotification } from "@/redux/features/notificationSlice"; // Import notification actions
 import RightSidebar from "@/Components/RightSidebar";
 import ProtectedRoute from "@/Components/ProtectedRoute";
-import { Home, Search, Users, Trophy, Layers, Sun, Moon } from "lucide-react";
+import { Home, Search, Users, Trophy, Layers, Sun, Moon, BoxIcon } from "lucide-react";
 import Link from "next/link";
 import ChatWindow from "@/Components/ChatWindow";
 import NotificationDropdown from "@/Components/NotificationDropdown";
 import io from "socket.io-client"; // Import Socket.io
 import { API_BASE_URL } from "@/utils/config";
+import { v4 as uuidv4 } from 'uuid'; // Import UUID for unique room IDs
 
 let socket; // Initialize outside component
 
@@ -27,6 +28,7 @@ export default function DashboardLayout({ children }) {
     { id: "connections", label: "Connections", icon: Users },
     { id: "hackathons", label: "Hackathons", icon: Trophy },
     { id: "groups", label: "Groups", icon: Layers, href: "/groups" },
+    { id: "rooms", label: "Rooms", icon: BoxIcon, href: "/room" },
   ];
 
   // --- NOTIFICATION & SOCKET LOGIC ---
@@ -151,6 +153,7 @@ export default function DashboardLayout({ children }) {
                     ? "text-slate-400 hover:bg-slate-800"
                     : "text-slate-500 hover:bg-slate-50"
                 }`;
+
 
                 if (item.href) {
                   return (
