@@ -14,7 +14,7 @@ app.use(helmet());
 app.use(morgan('dev')); 
 
 app.use(cors({
-  origin: ["https://uniconnect-tkgb.onrender.com"],
+  origin: ["https://uni-connect-nine.vercel.app"],
   credentials: true,
 }));
 
