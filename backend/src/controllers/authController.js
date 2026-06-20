@@ -1,141 +1,140 @@
-import User from "../models/User.js";
-import nodemailer from "nodemailer";
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
-import dotenv from "dotenv";
+import AuthService from "../services/AuthService.js";
+import AuditService from "../services/AuditService.js";
+import { env } from "../config/env.js";
+import { asyncHandler } from "../utils/asyncHandler.js";
+import AppError from "../utils/AppError.js";
 
-dotenv.config();
-
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: "7d",
-  });
-};
-
-// Configure Nodemailer
-const transporter = nodemailer.createTransport({
-  service: "gmail", // or your SMTP provider
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
+const getDeviceInfo = (req) => ({
+  ipAddress: req.ip || req.headers["x-forwarded-for"] || req.socket.remoteAddress,
+  userAgent: req.headers["user-agent"]
 });
 
-// 1. REGISTER: Create User (Unverified) & Send Email
-export const registerUser = async (req, res) => {
+// 1. REGISTER
+export const registerUser = asyncHandler(async (req, res, next) => {
   try {
-    const { name, username, institute, email, password } = req.body;
+    const userId = await AuthService.register(req.body);
+    await AuditService.log(userId, "REGISTRATION_SUCCESS", req);
+    res.status(201).json({ message: "Verification OTP sent", userId });
+  } catch (error) {
+    if (error.status === 400 && error.message === "User already exists") {
+      await AuditService.log(null, "REGISTRATION_ATTEMPT", req, { email: req.body.email, reason: "Email already exists" });
+    }
+    return next(new AppError(error.message, error.status || 500));
+  }
+});
 
-    // Check existing
-    const existingUser = await User.findOne({ email });
-    if (existingUser) return res.status(400).json({ message: "User already exists" });
+// 2. VERIFY
+export const verifyEmail = asyncHandler(async (req, res, next) => {
+  try {
+    const user = await AuthService.verifyEmail(req.body);
+    await AuditService.log(user._id, "EMAIL_VERIFICATION_SUCCESS", req);
+    res.status(200).json({ message: "Account verified successfully. Please login." });
+  } catch (error) {
+    return next(new AppError(error.message, error.status || 500));
+  }
+});
 
-    // Generate 4-digit Code
-    const code = Math.floor(1000 + Math.random() * 9000).toString();
-    const hashedCode = await bcrypt.hash(code, 10); // Hash code for security
+// 3. LOGIN
+export const loginUser = asyncHandler(async (req, res, next) => {
+  try {
+    const deviceInfo = getDeviceInfo(req);
+    const result = await AuthService.login({ ...req.body, deviceInfo });
 
-    // Hash Password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Create User (Marked as NOT Verified)
-    const newUser = new User({
-      name,
-      username,
-      institute,
-      email,
-      password: password,
-      isVerified: false, 
-      verificationCode: hashedCode,
-      verificationCodeExpires: Date.now() + 10 * 60 * 1000, // 10 mins expiry
+    // Set secure HTTP-Only cookie
+    res.cookie("refreshToken", result.rawRefreshToken, {
+      httpOnly: true,
+      secure: env.nodeEnv === "production",
+      sameSite: "lax",
+      path: "/api/auth/refresh-token",
+      maxAge: 30 * 24 * 60 * 60 * 1000
     });
 
-    await newUser.save();
+    await AuditService.log(result.user._id, "LOGIN_SUCCESS", req, { sessionId: result.sessionId });
 
-    // Send Email
-    await transporter.sendMail({
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Your Verification Code",
-      text: `Your verification code is: ${code}`,
-      html: `<b>Your verification code is: ${code}</b>`,
+    res.json({
+      accessToken: result.accessToken,
+      user: {
+        _id: result.user._id,
+        name: result.user.name,
+        username: result.user.username,
+        email: result.user.email,
+        institute: result.user.institute,
+      }
+    });
+  } catch (error) {
+    if (error.userId) {
+      await AuditService.log(error.userId, "LOGIN_FAILURE", req);
+      if (error.locked) {
+        await AuditService.log(error.userId, "ACCOUNT_LOCKOUT", req);
+      }
+    }
+    return next(new AppError(error.message, error.status || 500));
+  }
+});
+
+// 4. REFRESH TOKEN ROTATION
+export const rotateRefreshToken = asyncHandler(async (req, res, next) => {
+  const rawToken = req.cookies?.refreshToken;
+  const deviceInfo = getDeviceInfo(req);
+
+  try {
+    const result = await AuthService.rotateRefreshToken(rawToken, deviceInfo);
+
+    res.cookie("refreshToken", result.newRawRefreshToken, {
+      httpOnly: true,
+      secure: env.nodeEnv === "production",
+      sameSite: "lax",
+      path: "/api/auth/refresh-token",
+      maxAge: 30 * 24 * 60 * 60 * 1000
     });
 
-    // Return userId so frontend knows who to verify in step 2
-    res.status(201).json({ message: "Code sent", userId: newUser._id });
+    await AuditService.log(result.user._id, "REFRESH_TOKEN_SUCCESS", req);
+    res.json({ accessToken: result.newAccessToken });
 
   } catch (error) {
-    res.status(500).json({ message: error.message });
-    console.log(error.message);
-    
-  }
-};
-
-// 2. VERIFY: Check Code & Finalize Login
-export const verifyEmail = async (req, res) => {
-  try {
-    const { userId, code } = req.body;
-
-    const user = await User.findById(userId);
-    if (!user) return res.status(400).json({ message: "User not found" });
-
-    if (user.isVerified) return res.status(400).json({ message: "User already verified" });
-
-    // Check Expiry
-    if (user.verificationCodeExpires < Date.now()) {
-      return res.status(400).json({ message: "Code expired" });
+    if (error.reuseAttempt) {
+      await AuditService.log(error.user._id, "REFRESH_TOKEN_REUSE_ATTEMPT", req, { tokenHash: error.tokenHash });
+      res.clearCookie("refreshToken");
     }
-
-    // Check Code Match
-    const isMatch = await bcrypt.compare(code, user.verificationCode);
-    if (!isMatch) return res.status(400).json({ message: "Invalid code" });
-
-    // Mark Verified & Clean up
-    user.isVerified = true;
-    user.verificationCode = undefined;
-    user.verificationCodeExpires = undefined;
-    await user.save();
-
-    // Generate JWT Token (Login the user)
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: "30d" });
-
-    // Return User Data & Token
-    const { password, ...others } = user._doc;
-    res.status(200).json({ user: others, token });
-
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+    return next(new AppError(error.message, error.status || 500));
   }
-};
+});
 
-export const loginUser = async (req, res) => {
-  const { email, password } = req.body;
+// 5. FORGOT PASSWORD
+export const forgotPassword = asyncHandler(async (req, res, next) => {
+  const user = await AuthService.forgotPassword(req.body.email);
+  if (user) {
+    await AuditService.log(user._id, "PASSWORD_RESET_REQUESTED", req);
+  }
+  // Always return success to prevent email enumeration
+  res.status(200).json({ message: "If that email exists, a reset link has been sent." });
+});
 
+// 6. RESET PASSWORD
+export const resetPassword = asyncHandler(async (req, res, next) => {
   try {
-    const user = await User.findOne({ email });
-
-    if (user && (await user.matchPassword(password))) {
-      const token = generateToken(user._id);
-      // Set token in httpOnly cookie as well
-      res.cookie('token', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      });
-
-      res.json({
-        _id: user._id,
-        name: user.name,
-        username: user.username,
-        email: user.email,
-        institute: user.institute,
-        token,
-      });
-    } else {
-      res.status(401).json({ message: 'Invalid email or password' });
-    }
+    const user = await AuthService.resetPassword(req.body);
+    await AuditService.log(user._id, "PASSWORD_RESET_COMPLETED", req);
+    res.status(200).json({ message: "Password updated successfully." });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return next(new AppError(error.message, error.status || 500));
   }
-};
+});
+
+// 7. LOGOUT (SINGLE DEVICE)
+export const logoutUser = asyncHandler(async (req, res, next) => {
+  const userId = await AuthService.logout(req.cookies?.refreshToken, req.ip);
+  if (userId) {
+    await AuditService.log(userId, "LOGOUT_SUCCESS", req);
+  }
+  res.clearCookie("refreshToken");
+  res.json({ message: "Logged out successfully" });
+});
+
+// 8. LOGOUT ALL DEVICES
+export const logoutAllDevices = asyncHandler(async (req, res, next) => {
+  await AuthService.logoutAllDevices(req.user._id);
+  res.clearCookie("refreshToken");
+  await AuditService.log(req.user._id, "LOGOUT_ALL_DEVICES", req);
+  res.json({ message: "Logged out from all devices" });
+});

@@ -117,16 +117,16 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-500 ${isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
+    <div className={`min-h-screen flex items-center justify-center p-4 transition-colors duration-500 ${isDark ? 'bg-brand-dark text-white' : 'bg-brand-light text-slate-900'}`}>
       
       <button onClick={() => setIsDark(!isDark)} className="absolute top-6 right-6 p-2 rounded-full opacity-50 hover:opacity-100 text-2xl">
         {isDark ? '☀️' : '🌙'}
       </button>
 
-      <div className={`w-full max-w-md p-8 rounded-2xl border shadow-2xl transition-all ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}`}>
+      <div className={`w-full max-w-md p-8 rounded-2xl border shadow-2xl transition-all ${isDark ? 'bg-brand-dark-card border-brand-dark-border' : 'bg-brand-light-card border-brand-light-border'}`}>
         
         <div className="text-center mb-6">
-          <div className="w-12 h-12 mx-auto rounded-xl bg-blue-600 flex items-center justify-center text-xl font-bold text-white mb-4 shadow-lg shadow-blue-500/30">U</div>
+          <div className="w-12 h-12 mx-auto rounded-xl bg-brand-primary flex items-center justify-center text-xl font-bold text-white mb-4 shadow-lg shadow-brand-primary/30">U</div>
           <h1 className="text-2xl font-bold tracking-tight">
             {step === 1 ? "Create Account" : "Verify Email"}
           </h1>
@@ -173,7 +173,7 @@ export default function RegisterPage() {
             <button 
               type="submit" 
               disabled={isLoading}
-              className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all hover:-translate-y-0.5 shadow-lg shadow-blue-500/20 disabled:opacity-50 bg-blue-600 text-white hover:bg-blue-700`}
+              className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all hover:-translate-y-0.5 shadow-lg shadow-brand-primary/20 disabled:opacity-50 bg-brand-primary text-white hover:brightness-110`}
             >
               {isLoading ? 'Sending Code...' : 'Continue →'}
             </button>
@@ -201,7 +201,7 @@ export default function RegisterPage() {
             <button 
                 onClick={handleVerify}
                 disabled={isLoading}
-                className="w-full py-3.5 rounded-xl font-bold text-sm bg-blue-600 text-white hover:bg-blue-700 transition-all shadow-lg disabled:opacity-50"
+                className="w-full py-3.5 rounded-xl font-bold text-sm bg-brand-primary text-white hover:brightness-110 transition-all shadow-lg disabled:opacity-50"
             >
               {isLoading ? 'Verifying...' : 'Verify & Complete'}
             </button>
@@ -213,7 +213,7 @@ export default function RegisterPage() {
         )}
 
         <p className="text-center text-xs mt-8 opacity-60">
-          Already have an account? <Link href="/login" className="font-bold underline hover:opacity-100 text-blue-600">Log in</Link>
+          Already have an account? <Link href="/login" className="font-bold underline hover:opacity-100 text-brand-primary">Log in</Link>
         </p>
 
       </div>

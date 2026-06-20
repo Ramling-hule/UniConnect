@@ -1,109 +1,93 @@
 import Notification from '../models/Notification.js';
-// 👇 REDIS IMPORT
 import redisClient from '../config/redis.js';
+import notificationManager from '../services/notificationService.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import AppError from '../utils/AppError.js';
 
 // Helper to Create & Emit
 const createNotification = async (io, { recipientId, senderId, type, message, link }) => {
   try {
-    // 1. Save to DB
-    const newNotif = await Notification.create({
-      recipient: recipientId,
-      sender: senderId,
+    const results = await notificationManager.notify({
+      recipientId,
+      senderId,
       type,
       message,
       link
-    });
-
-    // 2. Emit Real-time event
-    const populatedNotif = await newNotif.populate('sender', 'name profilePicture');
-    
-    if (io) {
-        io.to(recipientId).emit("new_notification", populatedNotif);
-    }
-
-    // 👇 INVALIDATE CACHE
-    // The recipient has a new notification, so their cached list is outdated.
-    await redisClient.del(`notifications:${recipientId}`);
-    
-    return newNotif;
+    }, io);
+    return results.DbNotificationObserver;
   } catch (err) {
     console.error("Notification Error:", err);
   }
 };
 
 // API: Get User's Notifications
-const getNotifications = async (req, res) => {
+const getNotifications = asyncHandler(async (req, res, next) => {
+  const userId = req.user.id;
+  let cachedNotifs = null;
+
   try {
-    const userId = req.user.id;
-
-    // 👇 CHECK CACHE
-    const cachedNotifs = await redisClient.get(`notifications:${userId}`);
-    if (cachedNotifs) {
-        return res.json(JSON.parse(cachedNotifs));
+    if (redisClient.isReady) {
+      cachedNotifs = await redisClient.get(`notifications:${userId}`);
     }
-
-    const notifs = await Notification.find({ recipient: userId })
-      .sort({ createdAt: -1 })
-      .populate('sender', 'name profilePicture')
-      .limit(20);
-
-    // 👇 SAVE CACHE (Short TTL, e.g., 5 mins)
-    await redisClient.setEx(`notifications:${userId}`, 300, JSON.stringify(notifs));
-
-    res.json(notifs);
-  } catch (err) {
-    res.status(500).json(err);
+  } catch (redisErr) {
+    console.warn('⚠️  Redis unavailable, skipping cache read:', redisErr.message);
   }
-};
+
+  if (cachedNotifs) {
+      return res.json(JSON.parse(cachedNotifs));
+  }
+
+  const notifs = await Notification.find({ recipient: userId })
+    .sort({ createdAt: -1 })
+    .populate('sender', 'name profilePicture')
+    .limit(20);
+
+  try {
+    if (redisClient.isReady) {
+      await redisClient.setEx(`notifications:${userId}`, 300, JSON.stringify(notifs));
+    }
+  } catch (redisErr) {
+    console.warn('⚠️  Redis unavailable, skipping cache write:', redisErr.message);
+  }
+
+  res.json(notifs);
+});
 
 // 1. NEW: API Handler to Create Notification manually
-const sendNotificationAPI = async (req, res) => {
+const sendNotificationAPI = asyncHandler(async (req, res, next) => {
   const { recipientId, type, message, link } = req.body;
   const senderId = req.user.id;
 
-  try {
-    const io = req.app.get('io'); 
+  const io = req.app.get('io'); 
 
-    const newNotif = await Notification.create({
-      recipient: recipientId,
-      sender: senderId,
-      type, 
-      message,
-      link
-    });
+  const results = await notificationManager.notify({
+    recipientId,
+    senderId,
+    type,
+    message,
+    link
+  }, io);
 
-    const populatedNotif = await newNotif.populate('sender', 'name profilePicture');
-
-    if (io) {
-      io.to(recipientId).emit("new_notification", populatedNotif);
-    }
-
-    // 👇 INVALIDATE CACHE
-    await redisClient.del(`notifications:${recipientId}`);
-
-    res.status(201).json(populatedNotif);
-  } catch (err) {
-    console.error("Notif Create Error:", err);
-    res.status(500).json({ error: "Failed to send notification" });
-  }
-};
+  const populatedNotif = await results.DbNotificationObserver?.populate('sender', 'name profilePicture');
+  res.status(201).json(populatedNotif);
+});
 
 // API: Mark as Read
-const markRead = async (req, res) => {
+const markRead = asyncHandler(async (req, res, next) => {
+  await Notification.updateMany(
+    { recipient: req.user.id, isRead: false },
+    { $set: { isRead: true } }
+  );
+
   try {
-    await Notification.updateMany(
-      { recipient: req.user.id, isRead: false },
-      { $set: { isRead: true } }
-    );
-
-    // 👇 INVALIDATE CACHE
-    // The "isRead" status changed, so the cached list is wrong.
-    await redisClient.del(`notifications:${req.user.id}`);
-
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json(err);
+    if (redisClient.isReady) {
+      await redisClient.del(`notifications:${req.user.id}`);
+    }
+  } catch (redisErr) {
+    console.warn('⚠️  Redis unavailable, skipping cache invalidation:', redisErr.message);
   }
-};
+
+  res.json({ success: true });
+});
 
 export { createNotification, getNotifications, markRead, sendNotificationAPI };

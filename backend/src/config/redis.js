@@ -1,32 +1,35 @@
 import { createClient } from 'redis';
-import dotenv from 'dotenv';
+import { env } from './env.js';
 
-dotenv.config();
-
+// Limit retries so the process doesn't hang forever when Redis is unreachable
 const redisClient = createClient({
-    password: process.env.REDIS_PASSWORD,
+    url: env.redisUrl,
     socket: {
-        host: process.env.REDIS_HOST,
-        port: process.env.REDIS_PORT
+        connectTimeout: 5000,
+        reconnectStrategy: (retries) => {
+            if (retries >= 3) {
+                console.warn('⚠️  Redis: giving up after 3 retries. Sessions will use memory store.');
+                return false; // stop retrying — prevents infinite loop
+            }
+            return Math.min(retries * 500, 2000);
+        }
     }
 });
 
-redisClient.on('error', err => console.log('Redis Client Error', err));
+redisClient.on('error', (err) => {
+    // Only log the message, not the full stack — keeps output clean
+    console.warn('Redis unavailable:', err.message);
+});
+redisClient.on('connect', () => console.log('✅ Redis client connected'));
 
-// Immediately attempt to connect the client. connect() returns a promise;
-// if the environment (or Node version) doesn't support top-level await, call
-// connect() and log errors here so the rest of the app can use the client.
 const initRedis = async () => {
     try {
-        // If the client is already open this is a no-op
         await redisClient.connect();
-        console.log('Redis client connected');
     } catch (err) {
-        console.error('Redis connection error', err);
+        console.warn('⚠️  Redis not reachable — running without Redis (memory sessions).');
     }
 };
 
-// Start connecting in background when this module is imported.
 initRedis();
 
 export default redisClient;

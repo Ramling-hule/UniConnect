@@ -25,9 +25,10 @@ export default function CreatePostModal({ isOpen, onClose, onPostCreated }) {
     setLoading(true);
 
     try {
+      const currentUserId = user?.id || user?._id;
       // 1. Create FormData (Required for sending files)
       const formData = new FormData();
-      formData.append('userId', user._id);
+      formData.append('userId', currentUserId);
       formData.append('text', text);
       if (imageFile) {
         formData.append('file', imageFile); // 'file' must match upload.single('file') in backend

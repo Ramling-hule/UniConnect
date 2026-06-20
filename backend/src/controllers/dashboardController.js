@@ -2,328 +2,298 @@ import User from '../models/User.js';
 import Connection from '../models/Connection.js'; 
 import Post from '../models/Post.js'; 
 import cloudinary from '../config/cloudinary.js';
-// 👇 REDIS CLIENT IMPORT
 import redisClient from '../config/redis.js'; 
+import { asyncHandler } from '../utils/asyncHandler.js';
+import AppError from '../utils/AppError.js';
 
 // --- POSTS LOGIC ---
 
-export const createPost = async (req, res) => {
-  try {
-    const { text, userId } = req.body;
-    let imageUrl = "";
+export const createPost = asyncHandler(async (req, res, next) => {
+  const { text, userId } = req.body;
+  let imageUrl = "";
 
-    if (req.file) {
-      const uploadResult = await new Promise((resolve, reject) => {
-        const stream = cloudinary.uploader.upload_stream(
-          { folder: "uniconnect_posts" },
-          (error, result) => {
-            if (error) reject(error);
-            else resolve(result);
-          }
-        );
-        stream.end(req.file.buffer);
-      });
-      imageUrl = uploadResult.secure_url;
-    }
-
-    const newPost = await Post.create({
-      user: userId,
-      text: text || "",
-      image: imageUrl,
+  if (req.file) {
+    const uploadResult = await new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder: "uniconnect_posts" },
+        (error, result) => {
+          if (error) reject(new AppError("Post creation failed due to upload error", 500));
+          else resolve(result);
+        }
+      );
+      stream.end(req.file.buffer);
     });
-    await newPost.populate('user', 'name institute'); 
-    
-    // 👇 INVALIDATE CACHE: New post added, so the cached feed is old.
-    await redisClient.del('posts:all');
-
-    res.status(201).json(newPost);
-  } catch (error) {
-    console.error("Create Post Error:", error);
-    res.status(500).json({ message: "Post creation failed" });
+    imageUrl = uploadResult.secure_url;
   }
-};
 
-export const getPosts = async (req, res) => {
+  const newPost = await Post.create({
+    user: userId,
+    text: text || "",
+    image: imageUrl,
+  });
+  await newPost.populate('user', 'name institute'); 
+  
   try {
-    // 👇 CHECK CACHE: See if the feed is already in Redis
-    const cachedPosts = await redisClient.get('posts:all');
-    
-    if (cachedPosts) {
-      // Return cached data immediately (much faster)
-      return res.status(200).json(JSON.parse(cachedPosts));
+    if (redisClient.isReady) {
+      await redisClient.del('posts:all');
     }
-
-    // If cache miss, fetch from Database
-    const posts = await Post.find()
-      .populate('user', 'name profilePicture') 
-      .populate({
-        path: 'comments.user', 
-        select: 'name profilePicture' 
-      })
-      .sort({ createdAt: -1 });
-
-    // 👇 UPDATE CACHE: Save result to Redis for 1 hour (3600 seconds)
-    // We verify 'posts' has data before caching to avoid caching empty states unnecessarily
-    if (posts.length > 0) {
-        await redisClient.setEx('posts:all', 3600, JSON.stringify(posts));
-    }
-
-    res.status(200).json(posts);
-  } catch (err) {
-    res.status(500).json({ message: err.message });
+  } catch (redisErr) {
+    console.warn('⚠️  Redis unavailable, skipping cache invalidation:', redisErr.message);
   }
-};
 
-export const toggleLike = async (req, res) => {
-    try {
-      const { id } = req.params;
-      const userId = req.body.userId;
-      const post = await Post.findById(id);
-      if (!post) return res.status(404).json({ message: "Post not found" });
+  res.status(201).json(newPost);
+});
+
+export const getPosts = asyncHandler(async (req, res, next) => {
+  let cachedPosts = null;
   
-      const isLiked = post.likes.includes(userId);
-      if (isLiked) {
-        post.likes = post.likes.filter((uid) => uid.toString() !== userId);
-      } else {
-        post.likes.push(userId);
-      }
-      await post.save();
-
-      // 👇 INVALIDATE CACHE: Likes changed, feed needs update
-      await redisClient.del('posts:all');
-
-      res.json(post.likes);
-    } catch (error) {
-      res.status(500).json({ message: error.message });
+  try {
+    if (redisClient.isReady) {
+      cachedPosts = await redisClient.get('posts:all');
     }
-};
+  } catch (redisErr) {
+    console.warn('⚠️  Redis unavailable, skipping cache read:', redisErr.message);
+  }
   
-export const addComment = async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { userId, text } = req.body;
-      const post = await Post.findById(id);
-      if (!post) return res.status(404).json({ message: "Post not found" });
-  
-      post.comments.push({ user: userId, text, createdAt: new Date() });
-      await post.save();
-      
-      const updatedPost = await Post.findById(id).populate("comments.user", "name");
+  if (cachedPosts) {
+    return res.status(200).json(JSON.parse(cachedPosts));
+  }
 
-      // 👇 INVALIDATE CACHE: Comments changed, feed needs update
-      await redisClient.del('posts:all');
+  const posts = await Post.find()
+    .populate('user', 'name profilePicture') 
+    .populate({
+      path: 'comments.user', 
+      select: 'name profilePicture' 
+    })
+    .sort({ createdAt: -1 });
 
-      res.json(updatedPost.comments);
-    } catch (error) {
-      res.status(500).json({ message: error.message });
+  try {
+    if (posts.length > 0 && redisClient.isReady) {
+      await redisClient.setEx('posts:all', 3600, JSON.stringify(posts));
     }
-};
+  } catch (redisErr) {
+    console.warn('⚠️  Redis unavailable, skipping cache write:', redisErr.message);
+  }
+
+  res.status(200).json(posts);
+});
+
+export const toggleLike = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const userId = req.body.userId;
+  const post = await Post.findById(id);
+  if (!post) return next(new AppError("Post not found", 404));
+
+  const isLiked = post.likes.includes(userId);
+  if (isLiked) {
+    post.likes = post.likes.filter((uid) => uid.toString() !== userId);
+  } else {
+    post.likes.push(userId);
+  }
+  await post.save();
+
+  try {
+    if (redisClient.isReady) {
+      await redisClient.del('posts:all');
+    }
+  } catch (redisErr) {
+    console.warn('⚠️  Redis unavailable, skipping cache invalidation:', redisErr.message);
+  }
+
+  res.json(post.likes);
+});
+  
+export const addComment = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const { userId, text } = req.body;
+  const post = await Post.findById(id);
+  if (!post) return next(new AppError("Post not found", 404));
+
+  post.comments.push({ user: userId, text, createdAt: new Date() });
+  await post.save();
+  
+  const updatedPost = await Post.findById(id).populate("comments.user", "name");
+
+  try {
+    if (redisClient.isReady) {
+      await redisClient.del('posts:all');
+    }
+  } catch (redisErr) {
+    console.warn('⚠️  Redis unavailable, skipping cache invalidation:', redisErr.message);
+  }
+
+  res.json(updatedPost.comments);
+});
 
 // --- NETWORK / CONNECTION LOGIC ---
-// (Note: Connections are highly dynamic/personalized, so we usually don't cache them
-// to avoid complexity with invalidation, but you could if performance demands it.)
 
-export const sendConnectionRequest = async (req, res) => {
-  try {
-    const { receiverId } = req.body;
-    const senderId = req.user._id;
+export const sendConnectionRequest = asyncHandler(async (req, res, next) => {
+  const { receiverId } = req.body;
+  const senderId = req.user._id;
 
-    if (senderId.toString() === receiverId) return res.status(400).json({ message: "Cannot connect to yourself" });
+  if (senderId.toString() === receiverId) return next(new AppError("Cannot connect to yourself", 400));
 
-    // Check existing
-    const existing = await Connection.findOne({
-      $or: [
-        { requester: senderId, recipient: receiverId },
-        { requester: receiverId, recipient: senderId }
-      ]
-    });
+  const existing = await Connection.findOne({
+    $or: [
+      { requester: senderId, recipient: receiverId },
+      { requester: receiverId, recipient: senderId }
+    ]
+  });
 
-    if (existing) {
-      if (existing.status === 'pending') return res.status(400).json({ message: "Request already pending" });
-      if (existing.status === 'accepted') return res.status(400).json({ message: "Already connected" });
-      return res.status(400).json({ message: "Cannot send request" });
-    }
-
-    await Connection.create({ requester: senderId, recipient: receiverId, status: 'pending' });
-
-  
-    res.json({ success: true, message: "Request sent" });
-  } catch (error) {
-    console.error("Send Request Error:", error);
-    res.status(500).json({ message: error.message });
+  if (existing) {
+    if (existing.status === 'pending') return next(new AppError("Request already pending", 400));
+    if (existing.status === 'accepted') return next(new AppError("Already connected", 400));
+    return next(new AppError("Cannot send request", 400));
   }
-};
 
-export const respondToInvite = async (req, res) => {
-  try {
-    const userId = req.user._id; 
-    const { connectionId, action } = req.body;
+  await Connection.create({ requester: senderId, recipient: receiverId, status: 'pending' });
 
-    const connection = await Connection.findById(connectionId);
-    if (!connection) return res.status(404).json({ message: "Request not found" });
+  res.json({ success: true, message: "Request sent" });
+});
 
-    if (connection.recipient.toString() !== userId.toString()) {
-      return res.status(403).json({ message: "Not authorized" });
-    }
+export const respondToInvite = asyncHandler(async (req, res, next) => {
+  const userId = req.user._id; 
+  const { connectionId, action } = req.body;
 
-    if (action === 'accept') {
-      connection.status = 'accepted';
-      await connection.save();
-    } else {
-      await Connection.findByIdAndDelete(connectionId); 
-    }
+  const connection = await Connection.findById(connectionId);
+  if (!connection) return next(new AppError("Request not found", 404));
 
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+  if (connection.recipient.toString() !== userId.toString()) {
+    return next(new AppError("Not authorized", 403));
   }
-};
 
-export const getNetwork = async (req, res) => {
-  try {
-    const userId = req.user._id;
-
-    const invitations = await Connection.find({ recipient: userId, status: 'pending' })
-      .populate('requester', 'name institute headline'); 
-
-    const connections = await Connection.find({
-      $or: [
-        { requester: userId, recipient: { $ne: userId } }, 
-        { recipient: userId, requester: { $ne: userId } }  
-      ],
-      status: 'accepted'
-    })
-    .populate('requester', 'name institute headline')
-    .populate('recipient', 'name institute headline');
-
-    const formattedConnections = connections.map(conn => {
-      return conn.requester._id.toString() === userId.toString() ? conn.recipient : conn.requester;
-    });
-
-    const formattedInvites = invitations.map(inv => ({
-       _id: inv._id, 
-       user: inv.requester 
-    }));
-
-    res.json({ invitations: formattedInvites, connections: formattedConnections });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+  if (action === 'accept') {
+    connection.status = 'accepted';
+    await connection.save();
+  } else {
+    await Connection.findByIdAndDelete(connectionId); 
   }
-};
+
+  res.json({ success: true });
+});
+
+export const getNetwork = asyncHandler(async (req, res, next) => {
+  const userId = req.user._id;
+
+  const invitations = await Connection.find({ recipient: userId, status: 'pending' })
+    .populate('requester', 'name institute headline'); 
+
+  const connections = await Connection.find({
+    $or: [
+      { requester: userId, recipient: { $ne: userId } }, 
+      { recipient: userId, requester: { $ne: userId } }  
+    ],
+    status: 'accepted'
+  })
+  .populate('requester', 'name institute headline')
+  .populate('recipient', 'name institute headline');
+
+  const formattedConnections = connections.map(conn => {
+    return conn.requester._id.toString() === userId.toString() ? conn.recipient : conn.requester;
+  });
+
+  const formattedInvites = invitations.map(inv => ({
+      _id: inv._id, 
+      user: inv.requester 
+  }));
+
+  res.json({ invitations: formattedInvites, connections: formattedConnections });
+});
 
 // --- DISCOVER / SUGGESTIONS LOGIC ---
 
-export const getDiscoverUsers = async (req, res) => {
+export const getDiscoverUsers = asyncHandler(async (req, res, next) => {
+  const currentUserId = req.user._id.toString();
+
+  const myRelationships = await Connection.find({
+    $or: [{ requester: currentUserId }, { recipient: currentUserId }]
+  });
+
+  const statusMap = {};
+  myRelationships.forEach(rel => {
+    const otherId = rel.requester.toString() === currentUserId ? rel.recipient.toString() : rel.requester.toString();
+    statusMap[otherId] = rel.status; 
+  });
+
+  const users = await User.find({ _id: { $ne: currentUserId } })
+    .select('name institute headline')
+    .limit(20);
+
+  const formattedUsers = users.map(user => ({
+    _id: user._id,
+    name: user.name,
+    institute: user.institute,
+    headline: user.headline,
+    status: statusMap[user._id.toString()] || 'none'
+  }));
+
+  res.json(formattedUsers);
+});
+
+export const getUserByUsername = asyncHandler(async (req, res, next) => {
+  const { username } = req.params;
+  let cachedUser = null;
+
   try {
-    const currentUserId = req.user._id.toString();
-
-    // 1. Get my relationships status
-    const myRelationships = await Connection.find({
-      $or: [{ requester: currentUserId }, { recipient: currentUserId }]
-    });
-
-    const statusMap = {};
-    myRelationships.forEach(rel => {
-      const otherId = rel.requester.toString() === currentUserId ? rel.recipient.toString() : rel.requester.toString();
-      statusMap[otherId] = rel.status; // 'pending' or 'accepted'
-    });
-
-    // 2. Fetch Users (excluding self)
-    const users = await User.find({ _id: { $ne: currentUserId } })
-      .select('name institute headline')
-      .limit(20);
-
-    // 3. Map status
-    const formattedUsers = users.map(user => ({
-      _id: user._id,
-      name: user.name,
-      institute: user.institute,
-      headline: user.headline,
-      status: statusMap[user._id.toString()] || 'none'
-    }));
-
-    res.json(formattedUsers);
-  } catch (error) {
-    console.error("Discover Error:", error);
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// Get Profile by Username
-export const getUserByUsername = async (req, res) => {
-  try {
-    const { username } = req.params;
-    
-    // 👇 CHECK CACHE: Try to find this specific profile in Redis
-    const cachedUser = await redisClient.get(`profile:${username}`);
-    if (cachedUser) {
-        return res.json(JSON.parse(cachedUser));
+    if (redisClient.isReady) {
+      cachedUser = await redisClient.get(`profile:${username}`);
     }
-
-    // Find user where "username" field matches
-    const user = await User.findOne({ username }).select('-password');
-    
-    if (!user) return res.status(404).json({ message: "User not found" });
-    
-    // 👇 UPDATE CACHE: Save profile to Redis for 1 hour
-    await redisClient.setEx(`profile:${username}`, 3600, JSON.stringify(user));
-
-    res.json(user);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+  } catch (redisErr) {
+    console.warn('⚠️  Redis unavailable, skipping cache read:', redisErr.message);
   }
-};
 
-// Update MY Profile
-export const updateProfile = async (req, res) => {
+  if (cachedUser) {
+      return res.json(JSON.parse(cachedUser));
+  }
+
+  const user = await User.findOne({ username }).select('-password');
+  
+  if (!user) return next(new AppError("User not found", 404));
+  
   try {
-    const userId = req.user._id;
-    const updates = req.body; 
-
-    // Security: Prevent users from changing sensitive fields via this route
-    delete updates.password;
-    delete updates.email; 
-    delete updates.role;
-    delete updates._id;
-
-    // The { new: true } option ensures we get back the updated document
-    const user = await User.findByIdAndUpdate(userId, updates, { new: true }).select('-password');
-    
-    // 👇 INVALIDATE CACHE: Profile changed, so delete the old cached version
-    // We need the username to know which key to delete
-    if (user && user.username) {
-        await redisClient.del(`profile:${user.username}`);
+    if (redisClient.isReady) {
+      await redisClient.setEx(`profile:${username}`, 3600, JSON.stringify(user));
     }
-
-    res.json(user);
-  } catch (error) {
-    console.error("Update Profile Error:", error);
-    res.status(500).json({ message: error.message });
+  } catch (redisErr) {
+    console.warn('⚠️  Redis unavailable, skipping cache write:', redisErr.message);
   }
-};
 
-export const getSuggestions = async (req, res) => {
+  res.json(user);
+});
+
+export const updateProfile = asyncHandler(async (req, res, next) => {
+  const userId = req.user._id;
+  const updates = req.body; 
+
+  delete updates.password;
+  delete updates.email; 
+  delete updates.role;
+  delete updates._id;
+
+  const user = await User.findByIdAndUpdate(userId, updates, { new: true }).select('-password');
+  
   try {
-    // 1. Get Current User ID from the request (set by auth middleware)
-    const currentUserId = req.user?.id || req.userId;
-
-    // 2. Get current user's existing connections/following list
-    // We do this so we don't suggest people they already follow
-    const currentUser = await User.findById(currentUserId).select('following');
-    const excludeIds = [...(currentUser?.following || []), currentUserId];
-
-    // 3. Find 3 users who are NOT in the exclude list
-    // We use $nin (Not In) to filter them out
-    const suggestions = await User.find({
-      _id: { $nin: excludeIds }
-    })
-    .select('name institute profilePicture') // Only fetch fields UI needs
-    .limit(10); // strict limit for the widget
-
-    res.status(200).json(suggestions);
-
-  } catch (err) {
-    console.error("Suggestion Error:", err);
-    res.status(500).json({ message: "Failed to fetch suggestions" });
+    if (user && user.username && redisClient.isReady) {
+      await redisClient.del(`profile:${user.username}`);
+    }
+  } catch (redisErr) {
+    console.warn('⚠️  Redis unavailable, skipping cache invalidation:', redisErr.message);
   }
-};
+
+  res.json(user);
+});
+
+export const getSuggestions = asyncHandler(async (req, res, next) => {
+  const currentUserId = req.user?.id || req.userId;
+
+  const currentUser = await User.findById(currentUserId).select('following');
+  const excludeIds = [...(currentUser?.following || []), currentUserId];
+
+  const suggestions = await User.find({
+    _id: { $nin: excludeIds }
+  })
+  .select('name institute profilePicture') 
+  .limit(10); 
+
+  res.status(200).json(suggestions);
+});

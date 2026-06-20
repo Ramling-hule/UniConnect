@@ -16,19 +16,45 @@ const userSchema = new mongoose.Schema(
     isVerified: { type: Boolean, default: false },
     badges: [{ type: String }],
     points: { type: Number, default: 0 },
-    headline: { type: String }, // New field for profile
-    location: { type: String }, // New field for profile
-    //  connections: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-    // invitations: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-    isVerified: { type: Boolean, default: false },
-    verificationCode: { type: String },
-    verificationCodeExpires: { type: Date },
+    headline: { type: String },
+    location: { type: String },
+    about: { type: String },
+    profilePicture: { type: String, default: "" },
+    skills: [{ type: String }],
+    experience: [{ type: mongoose.Schema.Types.Mixed }],
+    education: [{ type: mongoose.Schema.Types.Mixed }],
+    openToWork: { type: Boolean, default: false },
+    openToCompete: { type: Boolean, default: false },
+    following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    instituteName: { type: String },
+
+    // Upgraded Security Verification Fields
+    verificationCode: { type: String }, // Keep for backward compatibility
+    verificationCodeExpires: { type: Date }, // Keep for backward compatibility
+    verificationOtpHash: { type: String },
+    verificationOtpExpires: { type: Date },
+    verificationAttempts: { type: Number, default: 0 },
+
+    // Password Reset
+    passwordResetTokenHash: { type: String },
+    passwordResetExpires: { type: Date },
+
+    // Lockout Protection
+    failedLoginAttempts: { type: Number, default: 0 },
+    lockedUntil: { type: Date },
+
+    // Token Versioning
+    tokenVersion: { type: Number, default: 1 },
   },
   { timestamps: true }
 );
 
-// --- FIXED MIDDLEWARE HERE ---
-// Removed 'next' because we are using async/await
+userSchema.index({ email: 1 });
+userSchema.index({ username: 1 });
+userSchema.index({ verificationOtpHash: 1 }, { sparse: true });
+userSchema.index({ passwordResetTokenHash: 1 }, { sparse: true });
+
+
 userSchema.pre("save", async function () {
   // If password is not modified, simply return (exits the function)
   if (!this.isModified("password")) return;

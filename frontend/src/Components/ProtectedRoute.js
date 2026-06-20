@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSelector } from 'react-redux';
 import { Loader } from 'lucide-react';
@@ -7,19 +7,14 @@ import { Loader } from 'lucide-react';
 export default function ProtectedRoute({ children }) {
   const router = useRouter();
   const { user } = useSelector((state) => state.auth);
-  const [isVerified, setIsVerified] = useState(false);
 
   useEffect(() => {
-    // 1. Check if user exists in Redux (which loaded from localStorage)
     if (!user) {
-      router.push('/login'); // Redirect if not logged in
-    } else {
-      setIsVerified(true);   // Allow access
+      router.push('/login');
     }
   }, [user, router]);
 
-  // 2. Show a full-screen loader while checking (prevents "flash" of protected content)
-  if (!isVerified) {
+  if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-900">
         <div className="text-center space-y-3">
@@ -30,6 +25,5 @@ export default function ProtectedRoute({ children }) {
     );
   }
 
-  // 3. If verified, render the protected page
   return <>{children}</>;
 }

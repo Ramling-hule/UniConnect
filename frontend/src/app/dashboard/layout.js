@@ -6,7 +6,7 @@ import { setActiveTab } from "@/redux/features/navSlice";
 import { setNotifications, addNotification } from "@/redux/features/notificationSlice"; // Import notification actions
 import RightSidebar from "@/Components/RightSidebar";
 import ProtectedRoute from "@/Components/ProtectedRoute";
-import { Home, Search, Users, Trophy, Layers, Sun, Moon, BoxIcon } from "lucide-react";
+import { Home, Search, Users, Trophy, Layers, Sun, Moon, BoxIcon, Sparkles } from "lucide-react";
 import Link from "next/link";
 import ChatWindow from "@/Components/ChatWindow";
 import NotificationDropdown from "@/Components/NotificationDropdown";
@@ -27,8 +27,8 @@ export default function DashboardLayout({ children }) {
     { id: "discover", label: "Discover", icon: Search },
     { id: "connections", label: "Connections", icon: Users },
     { id: "hackathons", label: "Hackathons", icon: Trophy },
+    { id: "copilot", label: "AI Copilot", icon: Sparkles, href: "/copilot" },
     { id: "groups", label: "Groups", icon: Layers, href: "/groups" },
-    { id: "rooms", label: "Rooms", icon: BoxIcon, href: "/room" },
   ];
 
   // --- NOTIFICATION & SOCKET LOGIC ---
@@ -73,15 +73,15 @@ export default function DashboardLayout({ children }) {
   return (
     <ProtectedRoute>
       <div
-        className={`min-h-screen ${isDark ? "bg-slate-950" : "bg-slate-50"}`}
+        className={`min-h-screen ${isDark ? "bg-brand-dark text-slate-200" : "bg-brand-light text-slate-800"}`}
       >
         {/* --- 1. TOP NAVBAR --- */}
         <nav
-          className={`fixed top-0 left-0 right-0 h-16 border-b z-50 px-4 md:px-8 flex items-center justify-between transition-colors duration-500
+          className={`fixed top-0 left-0 right-0 h-16 border-b z-50 px-4 md:px-8 flex items-center justify-between transition-all duration-300
             ${
               isDark
-                ? "bg-slate-900 border-slate-800"
-                : "bg-white border-slate-200"
+                ? "glass border-brand-dark-border"
+                : "glass border-brand-light-border"
             }`}
         >
           <div className="flex items-center gap-2">
@@ -135,23 +135,23 @@ export default function DashboardLayout({ children }) {
           {/* Added pb-16 for mobile nav spacing */}
           {/* --- 2. LEFT SIDEBAR (Desktop Only) --- */}
           <aside
-            className={`hidden md:block w-64 fixed h-[calc(100vh-64px)] overflow-y-auto border-r p-4 transition-colors duration-500
+            className={`hidden md:block w-64 fixed h-[calc(100vh-64px)] overflow-y-auto border-r p-4 transition-all duration-300 custom-scrollbar
               ${
                 isDark
-                  ? "bg-slate-900 border-slate-800"
-                  : "bg-white border-slate-200"
+                  ? "bg-brand-dark/80 backdrop-blur-md border-brand-dark-border"
+                  : "bg-white/80 backdrop-blur-md border-brand-light-border"
               }`}
           >
             <div className="space-y-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
-                const itemClass = `w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all mb-1 ${
+                const itemClass = `w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all mb-1 ${
                   isActive
-                    ? "bg-brand-primary text-white shadow-lg shadow-blue-500/30"
+                    ? "bg-brand-primary text-white shadow-md shadow-brand-primary/20"
                     : isDark
-                    ? "text-slate-400 hover:bg-slate-800"
-                    : "text-slate-500 hover:bg-slate-50"
+                    ? "text-slate-400 hover:bg-brand-dark-border hover:text-slate-200"
+                    : "text-slate-500 hover:bg-brand-light-border hover:text-slate-800"
                 }`;
 
 
@@ -193,11 +193,11 @@ export default function DashboardLayout({ children }) {
 
         {/* --- 5. MOBILE BOTTOM NAVIGATION (Visible only on small screens) --- */}
         <div
-          className={`md:hidden fixed bottom-0 left-0 right-0 border-t z-50 px-6 py-2 flex justify-between items-center transition-colors duration-500
+          className={`md:hidden fixed bottom-0 left-0 right-0 border-t z-50 px-6 py-2 flex justify-between items-center transition-all duration-300
             ${
               isDark
-                ? "bg-slate-900 border-slate-800"
-                : "bg-white border-slate-200"
+                ? "glass border-brand-dark-border"
+                : "glass border-brand-light-border"
             }`}
         >
           {navItems.map((item) => {

@@ -15,22 +15,23 @@ const PostCard = ({ post, user, isDark }) => {
   const [commentText, setCommentText] = useState("");
   const [isShareClicked, setIsShareClicked] = useState(false);
 
-  const isLiked = likes.includes(user?._id);
+  const currentUserId = user?.id || user?._id;
+  const isLiked = likes.some((id) => id?.toString() === currentUserId?.toString());
 
   // 1. Handle Like Toggle
   const handleLike = async () => {
     // Optimistic Update (Update UI immediately)
     if (isLiked) {
-      setLikes(likes.filter(id => id !== user._id));
+      setLikes(likes.filter(id => id?.toString() !== currentUserId?.toString()));
     } else {
-      setLikes([...likes, user._id]);
+      setLikes([...likes, currentUserId]);
     }
 
     try {
       await fetch(`${API_BASE_URL}/api/dashboard/posts/${post._id}/like`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user._id }),
+        body: JSON.stringify({ userId: currentUserId }),
       });
     } catch (err) {
       console.error("Like failed", err);
@@ -47,7 +48,7 @@ const PostCard = ({ post, user, isDark }) => {
       const res = await fetch(`${API_BASE_URL}/api/dashboard/posts/${post._id}/comment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: user._id, text: commentText }),
+        body: JSON.stringify({ userId: currentUserId, text: commentText }),
       });
       const updatedComments = await res.json();
       setComments(updatedComments);
@@ -70,7 +71,7 @@ const PostCard = ({ post, user, isDark }) => {
       {/* HEADER */}
       <div className="p-5 flex justify-between items-start">
         <div className="flex items-center gap-3">
-           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md">
+           <div className="w-10 h-10 rounded-full bg-linear-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md">
               {post.user?.name?.[0] || "U"}
            </div>
            <div>
@@ -97,7 +98,7 @@ const PostCard = ({ post, user, isDark }) => {
       {/* IMAGE MEDIA */}
       {post.image && (
          <div className={`mt-2 w-full flex items-center justify-center overflow-hidden ${isDark ? 'bg-black/40' : 'bg-slate-50'}`}>
-           <img src={post.image} alt="Post media" className="w-full h-auto max-h-[500px] object-contain" loading="lazy" />
+           <img src={post.image} alt="Post media" className="w-full h-auto max-h-125 object-contain" loading="lazy" />
          </div>
       )}
       
@@ -208,10 +209,18 @@ export default function Feed({ newPostTrigger }) {
     const fetchPosts = async () => {
       try {
         const res = await fetch(`${API_BASE_URL}/api/dashboard/posts`);
+        if (!res.ok) {
+          console.error(`API error: ${res.status}`);
+          setPosts([]);
+          setLoading(false);
+          return;
+        }
         const data = await res.json();
-        setPosts(data);
+        // Ensure data is an array, fallback to empty array if not
+        setPosts(Array.isArray(data) ? data : []);
       } catch (err) {
-        console.error(err);
+        console.error("Fetch posts error:", err);
+        setPosts([]);
       } finally {
         setLoading(false);
       }

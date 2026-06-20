@@ -5,21 +5,26 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "node src/server.js"
+    "dev": "node src/server.js",
+    "start": "node src/server.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@google/genai": "^2.8.0",
+    "argon2": "^0.44.0",
     "axios": "^1.13.2",
     "bcryptjs": "^3.0.3",
+    "cheerio": "^1.0.0-rc.12",
     "cloudinary": "^2.8.0",
     "connect-redis": "^9.0.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "express-rate-limit": "^7.0.0",
     "express-session": "^1.18.2",
     "helmet": "^8.1.0",
     "ioredis": "^5.9.1",
@@ -29,11 +34,14 @@
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.12",
+    "openai": "^4.9.0",
+    "otplib": "^13.4.1",
+    "qrcode": "^1.5.4",
     "socket.io": "^4.8.3",
     "uuid": "^13.0.0",
     "ws": "^8.19.0",
     "y-protocols": "^1.0.7",
-    "y-websocket": "^3.0.0",
+    "y-websocket": "^1.5.0",
     "yjs": "^13.6.29"
   }
 }

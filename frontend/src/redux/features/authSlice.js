@@ -11,7 +11,7 @@ const getFromStorage = (key) => {
 
 const initialState = {
   user: getFromStorage('userInfo'),
-  token: typeof window !== 'undefined' ? localStorage.getItem('userToken') : null,
+  token: typeof window !== 'undefined' ? localStorage.getItem('token') : null,
   isLoading: false,
   error: null,
   success: false,
@@ -38,6 +38,7 @@ const authSlice = createSlice({
 
       // 1. Create a clean user object (excluding the token)
       const userData = {
+        _id: _id,
         id: _id,            // Map _id to id for easier frontend use
         name: name,
         username: username,
@@ -70,7 +71,7 @@ const authSlice = createSlice({
       
       if (typeof window !== 'undefined') {
         localStorage.removeItem('userInfo');
-        localStorage.removeItem('userToken');
+        localStorage.removeItem('token');
       }
     },
     resetAuthStatus: (state) => {

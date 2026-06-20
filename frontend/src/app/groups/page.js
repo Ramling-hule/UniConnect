@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { Users, Plus, Lock, Globe, Search, Shield, Clock, Send } from 'lucide-react';
 import GroupChatWindow from '@/Components/GroupChatWindow'; 
@@ -9,9 +9,9 @@ import { toast } from 'react-hot-toast'; // Assuming you have toast for notifica
 export default function GroupsPage() {
   const { user } = useSelector((state) => state.auth);
   const { isDark } = useSelector((state) => state.theme);
+  const authToken = user?.token;
   
   const [groups, setGroups] = useState([]);
-  const [filteredGroups, setFilteredGroups] = useState([]);
   const [activeGroup, setActiveGroup] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState(""); // Filter state
@@ -22,40 +22,49 @@ export default function GroupsPage() {
   const [newPrivacy, setNewPrivacy] = useState("public");
   const [newImage, setNewImage] = useState(null);
 
-  useEffect(() => {
-    if (user?.token) {
-        fetchGroups();
-    }
-  }, [user]);
+  const filteredGroups = useMemo(() => {
+    if (!searchQuery) return groups;
 
-  // Filter Logic: Update filtered list whenever groups or search query changes
-  useEffect(() => {
-    if (!searchQuery) {
-        setFilteredGroups(groups);
-    } else {
-        const lowerQuery = searchQuery.toLowerCase();
-        const filtered = groups.filter(g => 
-            g.name.toLowerCase().includes(lowerQuery) || 
-            (g.instituteName && g.instituteName.toLowerCase().includes(lowerQuery)) // Filter by Institute
-        );
-        setFilteredGroups(filtered);
-    }
-  }, [searchQuery, groups]);
+    const lowerQuery = searchQuery.toLowerCase();
+    return groups.filter(g =>
+        g.name.toLowerCase().includes(lowerQuery) ||
+        (g.instituteName && g.instituteName.toLowerCase().includes(lowerQuery))
+    );
+  }, [groups, searchQuery]);
 
-  const fetchGroups = async () => {
+  const fetchGroups = useCallback(async () => {
      try {
          const res = await fetch(`${API_BASE_URL}/api/groups`, {
-            headers: { Authorization: `Bearer ${user.token}` }
+            headers: { Authorization: `Bearer ${authToken}` }
          });
          const data = await res.json();
          if(Array.isArray(data)) {
              setGroups(data);
-             setFilteredGroups(data);
          }
      } catch (err) {
          console.error("Failed to fetch groups", err);
      }
-  };
+  }, [authToken]);
+
+  useEffect(() => {
+    if (!authToken) return;
+
+    const fetchInitialGroups = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/groups`, {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setGroups(data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch groups", err);
+      }
+    };
+
+    fetchInitialGroups();
+  }, [authToken]);
 
   const handleCreate = async (e) => {
      e.preventDefault();
@@ -153,7 +162,11 @@ export default function GroupsPage() {
              )}
              
              {filteredGroups.map(group => {
-                const isAdmin = group.admins?.includes(user._id);
+                const currentUserId = user?.id || user?._id;
+                const isAdmin = group.admins?.some((admin) => {
+                  const adminId = typeof admin === 'object' ? admin._id : admin;
+                  return adminId?.toString() === currentUserId?.toString();
+                });
                 const isMember = group.isMember || isAdmin;
                 const isPending = group.hasRequested; 
 

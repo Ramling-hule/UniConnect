@@ -11,6 +11,7 @@ const NotificationSchema = new mongoose.Schema({
   message: { type: String }, // Optional custom text
   isRead: { type: Boolean, default: false },
   link: { type: String }, // Where should clicking take them? (e.g., "/chat")
+  relatedId: { type: mongoose.Schema.Types.ObjectId }, // Reference to Group, Post, etc.
 }, { timestamps: true });
 
 export default mongoose.model('Notification', NotificationSchema);

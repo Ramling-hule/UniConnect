@@ -1,11 +1,10 @@
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
+import redisClient from '../config/redis.js';
+import { env } from '../config/env.js';
 
 export const protect = async (req, res, next) => {
   let token;
-
-  console.log("--- Auth Debug Start ---");
-  console.log("1. Header received:", req.headers.authorization);
 
   if (
     req.headers.authorization &&
@@ -13,28 +12,44 @@ export const protect = async (req, res, next) => {
   ) {
     try {
       token = req.headers.authorization.split(' ')[1];
-      console.log("2. Token extracted:", token);
 
       // Verify token
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
-      console.log("3. Token decoded:", decoded);
+      const decoded = jwt.verify(token, env.jwtSecret, {
+        issuer: 'uniconnect-api',
+        audience: 'uniconnect-client'
+      });
 
       // Check User
-      req.user = await User.findById(decoded.id).select('-password');
-      console.log("4. User found in DB:", req.user ? "Yes" : "No");
-
-      if (!req.user) {
-        return res.status(401).json({ message: 'Not authorized, user not found' });
+      const user = await User.findById(decoded.id).select('-password');
+      if (!user) {
+        return res.status(401).json({ error: 'USER_NOT_FOUND', message: 'Not authorized, user not found' });
       }
 
+      // Check Account Lockout
+      if (user.lockedUntil && user.lockedUntil > Date.now()) {
+        return res.status(423).json({ error: 'ACCOUNT_LOCKED', message: 'Account is temporarily locked due to failed login attempts.' });
+      }
+
+      // Validate Token Version
+      if (decoded.version !== (user.tokenVersion || 1)) {
+        return res.status(401).json({ error: 'TOKEN_REVOKED', message: 'This token has been revoked.' });
+      }
+
+      // Verify Redis Session state
+      if (redisClient.isReady) {
+        const sessionKeys = await redisClient.keys(`session:active:${user._id}:*`);
+        if (sessionKeys.length === 0) {
+          return res.status(401).json({ error: 'SESSION_EXPIRED', message: 'No active session found.' });
+        }
+      }
+
+      req.user = user;
       next();
     } catch (error) {
-      console.error("!!! Auth Error:", error.message);
-      // Helpful for debugging expiration vs invalid signature
-      res.status(401).json({ message: 'Not authorized, token failed', error: error.message });
+      const errorMsg = error.name === 'TokenExpiredError' ? 'TOKEN_EXPIRED' : 'INVALID_TOKEN';
+      res.status(401).json({ error: errorMsg, message: error.message });
     }
   } else {
-      console.log("No Bearer token found in header");
-      res.status(401).json({ message: 'Not authorized, no token' });
+    res.status(401).json({ error: 'UNAUTHORIZED', message: 'Not authorized, no token' });
   }
 };

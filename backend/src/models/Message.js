@@ -11,6 +11,9 @@ const messageSchema = new mongoose.Schema({
   fileType: { type: String, enum: ['image', 'video', 'pdf', 'ppt', 'none', 'file'], default: 'none' },
   fileName: { type: String }, // Original name of the file
   
+  status: { type: String, enum: ['sent', 'delivered', 'read'], default: 'sent' },
+  readAt: { type: Date },
+  
   createdAt: { type: Date, default: Date.now }
 });
 

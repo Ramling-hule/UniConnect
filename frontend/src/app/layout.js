@@ -1,7 +1,7 @@
 "use client";
 import { Provider } from 'react-redux';
 import { store } from '../redux/store';
-import ThemeWrapper from '../Components/ThemeWrapper'; 
+import ThemeWrapper from '../Components/ThemeWrapper';
 import './globals.css';
 
 export default function RootLayout({ children }) {

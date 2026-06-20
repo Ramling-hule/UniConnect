@@ -397,7 +397,7 @@ export default function GroupChatWindow({ group: initialGroup, user, onBack }) {
                   const memberName = member.name || "Unknown User";
                   const memberPic = member.profilePicture;
                   const isMemberAdmin = group.admins.some((a) => (typeof a === "object" ? a._id : a) === memberId);
-                  const isCurrentUser = memberId === (user.id || user._id);
+                  const isCurrentUser = memberId?.toString() === (user.id || user._id)?.toString();
 
                   return (
                     <div key={memberId} className="flex items-center gap-3 p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition">

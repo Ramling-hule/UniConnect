@@ -16,7 +16,7 @@ const DashboardGraphic = ({ isDark }) => (
     {/* Main Card */}
     <div className={`
       relative p-6 rounded-2xl w-80 shadow-2xl transition-all duration-500 border
-      ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-100'}
+      ${isDark ? 'bg-brand-dark-card border-brand-dark-border' : 'bg-brand-light-card border-brand-light-border'}
     `}>
       {/* Card Header */}
       <div className="flex justify-between items-center mb-6">
@@ -44,7 +44,7 @@ const DashboardGraphic = ({ isDark }) => (
     {/* Floating Badge (Like "Store Manager" in image) */}
     <div className={`
       absolute -right-12 top-12 p-3 rounded-xl shadow-xl border flex items-center gap-3 animate-pulse-slow
-      ${isDark ? 'bg-slate-700 border-slate-600' : 'bg-white border-slate-100'}
+      ${isDark ? 'glass border-brand-dark-border' : 'glass border-brand-light-border'}
     `}>
        <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-xs">
           🏆
@@ -64,7 +64,7 @@ export default function LandingPage() {
   const toggleTheme = () => setIsDark(!isDark);
 
   return (
-    <div className={`min-h-screen transition-colors duration-500 font-sans ${isDark ? 'bg-brand-dark text-white' : 'bg-white text-slate-900'}`}>
+    <div className={`min-h-screen transition-colors duration-500 font-sans ${isDark ? 'bg-brand-dark text-white' : 'bg-brand-light text-slate-900'}`}>
       
       {/* NAVBAR */}
       <nav className="flex justify-between items-center py-6 px-6 lg:px-12 max-w-7xl mx-auto relative z-20">
@@ -84,7 +84,7 @@ export default function LandingPage() {
         </div>
 
         <div className="flex items-center gap-4">
-          <button onClick={toggleTheme} className={`p-2 rounded-full transition-all ${isDark ? 'bg-slate-800 text-yellow-400' : 'bg-slate-100 text-slate-600'}`}>
+          <button onClick={toggleTheme} className={`p-2 rounded-full transition-all ${isDark ? 'bg-brand-dark-card text-yellow-400' : 'bg-brand-light-card border border-brand-light-border text-slate-600'}`}>
             {isDark ? <SunIcon /> : <MoonIcon />}
           </button>
           
@@ -133,7 +133,7 @@ export default function LandingPage() {
                 </button>
             </Link>
             <button className={`px-8 py-3.5 rounded-lg font-bold text-sm border flex items-center justify-center gap-2 transition-all ${
-                isDark ? 'border-slate-700 text-white hover:bg-slate-800' : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                isDark ? 'border-brand-dark-border text-white hover:bg-brand-dark-card' : 'border-brand-light-border text-slate-700 hover:bg-brand-light-card'
             }`}>
               ▶ Watch Demo
             </button>

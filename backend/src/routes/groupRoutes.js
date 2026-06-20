@@ -24,6 +24,7 @@ const upload = multer({ storage });
 router.post('/', protect, upload.single('image'), createGroup); // Create Group with Icon
 router.get('/', protect, getGroups);
 router.post('/join', protect, requestToJoinGroup);
+router.post('/request-join', protect, requestToJoinGroup);
 router.post('/join-public', protect, joinGroup);
 router.post('/handle-request', protect, handleJoinRequest);
 router.get('/:id', protect, getGroupById);

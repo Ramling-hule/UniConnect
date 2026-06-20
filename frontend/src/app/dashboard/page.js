@@ -8,38 +8,27 @@ import Feed from '@/Components/Feed';
 import DiscoverView from '@/Components/Views/DiscoverView';
 import HackathonsView from '@/Components/Views/HackathonsView';
 import ConnectionsView from '@/Components/Views/ConnectionsView';
+import CareerCopilotView from '@/Components/Views/CareerCopilotView';
 import { Image as ImageIcon, Calendar } from 'lucide-react';
 
 export default function DashboardPage() {
   const router = useRouter(); // 2. Initialize Router
   
   // 3. Get user AND token from Redux
-  const { user, token } = useSelector((state) => state.auth);
+  const { user } = useSelector((state) => state.auth);
   const { isDark } = useSelector((state) => state.theme);
   const { activeTab } = useSelector((state) => state.nav);
   
   const [showModal, setShowModal] = useState(false);
   const [newPost, setNewPost] = useState(null);
   
-  // 4. Auth Checking State (Prevents flashing content before redirect)
-  const [isAuthChecking, setIsAuthChecking] = useState(true);
-
-  // 5. PROTECTION LOGIC
   useEffect(() => {
-    // If no user or no token, redirect to login
     if (!user) {
        router.push('/login');
-    } else {
-       // User is authenticated, show the page
-       setIsAuthChecking(false);
     }
   }, [user, router]);
 
-  // 6. Loading Guard
-  // Don't render anything while checking auth
-  if (isAuthChecking) {
-     return null; // Or return a <LoadingSpinner /> if you have one
-  }
+  if (!user) return null;
 
   return (
     <div className="pb-10">
@@ -92,6 +81,7 @@ export default function DashboardPage() {
         {activeTab === 'discover' && <DiscoverView />}
         {activeTab === 'hackathons' && <HackathonsView />}
         {activeTab === 'connections' && <ConnectionsView />}
+        {activeTab === 'copilot' && <CareerCopilotView />}
         
         {['groups'].includes(activeTab) && (
             <div className={`p-10 rounded-2xl border border-dashed text-center ${isDark ? 'border-slate-800 text-slate-500' : 'border-slate-200 text-slate-400'}`}>

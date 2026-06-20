@@ -195,7 +195,7 @@ export default function ConnectionsView() {
         >
           {connections.length === 0 ? (
             <div className="p-8 text-center text-slate-500 text-sm">
-              You haven't connected with anyone yet.
+              You haven&apos;t connected with anyone yet.
             </div>
           ) : (
             connections.map((conn, index) => (

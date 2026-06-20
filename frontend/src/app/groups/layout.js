@@ -18,6 +18,7 @@ export default function GroupsLayout({ children }) {
   const { user } = useSelector((state) => state.auth);
   const { isDark } = useSelector((state) => state.theme);
   const { activeTab } = useSelector((state) => state.nav); 
+  const profileHref = user?.username ? `/profile/${user.username}` : "/login";
 
   // 2. Define Tabs (Same as Dashboard)
   const navItems = [
@@ -70,14 +71,14 @@ export default function GroupsLayout({ children }) {
             >
               {isDark ? <Sun size={20} /> : <Moon size={20} />}
             </button>
-            <Link href={`/profile/${user.username}`}>
+            <Link href={profileHref}>
             <div className="w-9 h-9 rounded-full bg-brand-primary text-white flex items-center justify-center font-bold">
               {user?.name?.[0]}
             </div>
             </Link>
-            <Link href={`/profile/${user.username}`}>
+            <Link href={profileHref}>
               <div className="font-bold hover:underline cursor-pointer hidden sm:block">
-                {user.name}
+                {user?.name}
               </div>
             </Link>
           </div>

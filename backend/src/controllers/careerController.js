@@ -1,0 +1,88 @@
+import { GoogleGenAI } from '@google/genai';
+import { env } from '../config/env.js';
+import User from '../models/User.js';
+import { asyncHandler } from '../utils/asyncHandler.js';
+import AppError from '../utils/AppError.js';
+let ai;
+if (env.geminiApiKey) {
+  ai = new GoogleGenAI({ apiKey: env.geminiApiKey });
+}
+
+export const getCareerRecommendations = asyncHandler(async (req, res, next) => {
+  if (!ai) {
+    return next(new AppError('AI Career Copilot service is currently misconfigured. Gemini API key missing.', 500));
+  }
+
+  const user = await User.findById(req.user._id);
+  if (!user) return next(new AppError('User not found', 404));
+
+    const userProfileText = `
+Name: ${user.name}
+Headline: ${user.headline || 'None'}
+Institute: ${user.institute}
+Skills: ${user.skills?.join(', ') || 'None'}
+Experience: ${JSON.stringify(user.experience) || 'None'}
+Education: ${JSON.stringify(user.education) || 'None'}
+Badges: ${user.badges?.join(', ') || 'None'}
+Points: ${user.points || 0}
+About: ${user.about || 'None'}
+`;
+
+    const systemPrompt = 'You are an AI Academic and Career Copilot. Analyze the student profile and output a JSON object only. Format: { "profileScore": 85, "suggestions": ["add about page", "add project experience"], "skillsToLearn": ["Docker", "TypeScript"], "targetRoles": ["Frontend Developer", "React Architect"], "badgesToTarget": ["Group Leader badge", "Hackathon Champ"], "roadmap": { "shortTerm": "Learn styling libraries and build portfolio", "longTerm": "Master Cloud deployments and Node architectures" } }';
+
+    const response = await ai.models.generateContent({
+      model: env.geminiModel || 'gemini-2.5-flash',
+      contents: `Analyze this student profile and generate the career insights: \n${userProfileText}`,
+      config: {
+        systemInstruction: systemPrompt,
+        responseMimeType: "application/json"
+      }
+    });
+
+    const result = JSON.parse(response.text);
+    res.json({ success: true, ...result });
+});
+
+export const handleCareerChat = asyncHandler(async (req, res, next) => {
+  if (!ai) {
+    return next(new AppError('AI Career Copilot service is currently misconfigured. Gemini API key missing.', 500));
+  }
+
+  const { query } = req.body;
+  if (!query || query.trim() === '') {
+    return next(new AppError('Query string is required.', 400));
+  }
+
+  const user = await User.findById(req.user._id);
+  if (!user) return next(new AppError('User not found', 404));
+
+    const systemPrompt = `You are the UniConnect AI Career and Academic Copilot. Your role is to guide students on their educational and professional paths.
+You have access to the student's profile context. Tailor all advice to their profile details.
+
+Student Profile:
+- Name: ${user.name}
+- Headline: ${user.headline || 'None'}
+- Institute: ${user.institute}
+- Skills: ${user.skills?.join(', ') || 'None'}
+- Experience: ${JSON.stringify(user.experience) || 'None'}
+- Education: ${JSON.stringify(user.education) || 'None'}
+- Badges: ${user.badges?.join(', ') || 'None'}
+- Points: ${user.points || 0}
+- About: ${user.about || 'None'}
+
+RULES:
+1. Provide highly conversational, encouraging, and clear guidance.
+2. Keep spoken/audio responses concise. Try to answer in 2-4 sentences max so it reads aloud nicely, but provide detailed bullet points if appropriate for longer roadmap descriptions.
+3. Reference their profile details directly in your response where relevant.
+`;
+
+    const response = await ai.models.generateContent({
+      model: env.geminiModel || 'gemini-2.5-flash',
+      contents: query,
+      config: {
+        systemInstruction: systemPrompt
+      }
+    });
+
+    res.json({ success: true, text: response.text });
+});
