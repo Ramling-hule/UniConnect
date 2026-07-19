@@ -22,6 +22,8 @@ export const env = {
   chromaApiUrl: process.env.CHROMA_API_URL || 'http://localhost:8000',
   chromaApiKey: process.env.CHROMA_API_KEY || '',
   chromaCollectionName: process.env.CHROMA_COLLECTION_NAME || 'educational_resources',
+  pineconeApiKey: process.env.PINECONE_API_KEY || '',
+  pineconeIndexName: process.env.PINECONE_INDEX_NAME || '',
   sessionSecret: process.env.SESSION_SECRET || 'your_secret_key',
   cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
   cloudinaryApiKey: process.env.CLOUDINARY_API_KEY || '',
