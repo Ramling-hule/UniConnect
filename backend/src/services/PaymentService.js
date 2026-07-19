@@ -111,6 +111,96 @@ class PaymentService {
     err.status = 400;
     throw err;
   }
+  /**
+   * Creates a Razorpay order for a hackathon registration (non-free hackathons).
+   * Existing createOrder() for bookings is completely unchanged.
+   * @param {string} registrationId  - HackathonRegistration _id
+   * @param {string} userId          - The requesting user's _id
+   */
+  async createHackathonOrder(registrationId, userId) {
+    const HackathonRegistration = (await import('../models/HackathonRegistration.js')).default;
+    const Hackathon = (await import('../models/Hackathon.js')).default;
+
+    const registration = await HackathonRegistration.findById(registrationId);
+    if (!registration) {
+      const err = new Error('Registration not found'); err.status = 404; throw err;
+    }
+    if (registration.user.toString() !== userId.toString()) {
+      const err = new Error('Not authorized'); err.status = 403; throw err;
+    }
+
+    const hackathon = await Hackathon.findById(registration.hackathon);
+    if (!hackathon) {
+      const err = new Error('Hackathon not found'); err.status = 404; throw err;
+    }
+
+    const options = {
+      amount:          hackathon.registrationFee * 100, // paise
+      currency:        hackathon.currency || 'INR',
+      receipt:         `hack_reg_${registration._id}`,
+      payment_capture: 1,
+    };
+
+    let order;
+    try {
+      order = await this._razorpay.orders.create(options);
+    } catch {
+      const err = new Error('Failed to create Razorpay order'); err.status = 500; throw err;
+    }
+
+    const payment = new Payment({
+      hackathonRegistration: registration._id,
+      user: userId,
+      razorpayOrderId: order.id,
+      amount: hackathon.registrationFee,
+      currency: hackathon.currency || 'INR',
+      status: 'created',
+    });
+    await payment.save();
+
+    registration.payment = payment._id;
+    registration.paymentStatus = 'pending';
+    await registration.save();
+
+    return { order, paymentId: payment._id };
+  }
+
+  /**
+   * Verifies a Razorpay payment for a hackathon registration.
+   */
+  async verifyHackathonPayment({ razorpay_order_id, razorpay_payment_id, razorpay_signature, registrationId }) {
+    const HackathonRegistration = (await import('../models/HackathonRegistration.js')).default;
+    const Hackathon             = (await import('../models/Hackathon.js')).default;
+
+    const keySecret = env.razorpayKeySecret || process.env.RAZORPAY_KEY_SECRET || 'dummy_key_secret';
+    const body = `${razorpay_order_id}|${razorpay_payment_id}`;
+    const expectedSignature = crypto.createHmac('sha256', keySecret).update(body).digest('hex');
+    const isAuthentic = expectedSignature === razorpay_signature;
+
+    if (isAuthentic) {
+      await Payment.findOneAndUpdate(
+        { razorpayOrderId: razorpay_order_id },
+        { razorpayPaymentId: razorpay_payment_id, razorpaySignature: razorpay_signature, status: 'captured' },
+      );
+
+      const registration = await HackathonRegistration.findById(registrationId);
+      if (registration) {
+        registration.status = 'confirmed';
+        registration.paymentStatus = 'paid';
+        await registration.save();
+        await Hackathon.findByIdAndUpdate(registration.hackathon, { $inc: { registrationCount: 1 } });
+      }
+
+      return { success: true };
+    }
+
+    await Payment.findOneAndUpdate(
+      { razorpayOrderId: razorpay_order_id },
+      { status: 'failed' },
+    );
+    const err = new Error('Invalid payment signature'); err.status = 400; throw err;
+  }
 }
 
 export default new PaymentService();
+

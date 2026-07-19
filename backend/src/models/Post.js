@@ -21,9 +21,22 @@ const postSchema = new mongoose.Schema({
       createdAt: { type: Date, default: Date.now },
     },
   ],
+  // ── Hackathon extension: non-breaking, both fields default to null ──────────
+  postType: {
+    type: String,
+    enum: ['regular', 'hackathon_lfm'],
+    default: 'regular',
+  },
+  hackathonMeta: {
+    hackathonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Hackathon', default: null },
+    teamId:      { type: mongoose.Schema.Types.ObjectId, ref: 'HackathonTeam', default: null },
+    rolesNeeded: [{ type: String }],
+    techStack:   [{ type: String }],
+  },
 }, { timestamps: true });
 
 postSchema.index({ createdAt: -1, _id: -1 });
 postSchema.index({ user: 1 });
+postSchema.index({ postType: 1, createdAt: -1 }); // for hackathon LFM feed queries
 
 export default mongoose.model('Post', postSchema);

@@ -134,6 +134,38 @@ function createRoomHandlers(io, socket) {
   });
 }
 
+/**
+ * createHackathonHandlers — Hackathon team chat & live updates.
+ *
+ * Reuse strategy:
+ *  - 'join_hackathon_team' mirrors 'join_group' — joins the team's Group room.
+ *    This means the existing send_group_message / receive_group_message pipeline
+ *    handles all team chat messages with ZERO new code.
+ *  - 'hackathon_team_update' broadcasts real-time team roster changes.
+ *
+ * NO existing handlers are modified. This is a pure additive extension.
+ */
+function createHackathonHandlers(io, socket) {
+  // Join a hackathon team's chat room (reuses group socket infrastructure)
+  socket.on('join_hackathon_team', ({ teamId, userId }) => {
+    if (!teamId || !userId) return;
+    // We join using the teamId as the room — matching how GroupChatWindow.js uses groupId
+    socket.join(teamId);
+  });
+
+  // Broadcast team member changes (join/leave/invite) to all team members
+  socket.on('hackathon_team_update', ({ teamId, event, payload }) => {
+    if (!teamId) return;
+    socket.to(teamId).emit('hackathon_team_update', { event, payload });
+  });
+
+  // Live submission status broadcast within the team room
+  socket.on('hackathon_submission_update', ({ teamId, isDraft }) => {
+    if (!teamId) return;
+    socket.to(teamId).emit('hackathon_submission_update', { isDraft });
+  });
+}
+
 // ─── Entry Point ──────────────────────────────────────────────────────────────
 
 /**
@@ -146,5 +178,7 @@ export const registerSocketHandlers = (io) => {
     createDirectMessageHandlers(io, socket);
     createGroupHandlers(io, socket);
     createRoomHandlers(io, socket);
+    createHackathonHandlers(io, socket); // ← new, additive only
   });
 };
+

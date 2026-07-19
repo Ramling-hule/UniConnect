@@ -9,6 +9,7 @@ import mentorRoutes from './mentorRoutes.js';
 import bookingRoutes from './bookingRoutes.js';
 import paymentRoutes from './paymentRoutes.js';
 import reviewRoutes from './reviewRoutes.js';
+import hackathonRoutes from './hackathonRoutes.js';
 
 const routes = [
   ['/api/auth', authRoutes],
@@ -22,6 +23,7 @@ const routes = [
   ['/api/booking', bookingRoutes],
   ['/api/payment', paymentRoutes],
   ['/api/review', reviewRoutes],
+  ['/api/hackathons', hackathonRoutes],
 ];
 
 export const registerRoutes = (app) => {

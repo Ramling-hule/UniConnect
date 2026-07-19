@@ -5,7 +5,15 @@ const NotificationSchema = new mongoose.Schema({
   sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // Optional (e.g., system alerts)
   type: { 
     type: String, 
-    enum: ['connection_request', 'connection_accepted', 'message', 'like', 'comment', 'GROUP_JOIN_REQUEST', "GROUP_APPROVED"], 
+    enum: [
+      // ── existing types (unchanged) ────────────────────────────────────────
+      'connection_request', 'connection_accepted', 'message',
+      'like', 'comment', 'GROUP_JOIN_REQUEST', 'GROUP_APPROVED',
+      // ── hackathon types (new additions) ────────────────────────────────
+      'hackathon_invite', 'hackathon_accepted', 'hackathon_rejected',
+      'hackathon_submission', 'hackathon_reminder', 'hackathon_winner',
+      'team_join_request', 'team_joined', 'hackathon_payment',
+    ], 
     required: true 
   },
   message: { type: String }, // Optional custom text
