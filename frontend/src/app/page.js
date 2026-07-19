@@ -18,26 +18,21 @@ const DashboardGraphic = ({ isDark }) => (
       relative p-6 rounded-2xl w-80 shadow-2xl transition-all duration-500 border
       ${isDark ? 'bg-brand-dark-card border-brand-dark-border' : 'bg-brand-light-card border-brand-light-border'}
     `}>
-      {/* Card Header */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex items-center gap-4 mb-4">
+        <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold text-lg">
+          JD
+        </div>
         <div>
-           <p className="text-xs font-bold text-gray-400 uppercase">Total Points</p>
-           <h3 className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>2,850</h3>
-        </div>
-        <div className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold">
-           +12% 
+           <h3 className={`font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>John Doe</h3>
+           <p className="text-xs text-gray-400">Software Engineer</p>
         </div>
       </div>
-
-      {/* Bar Chart Visual */}
-      <div className="flex items-end gap-3 h-32 mb-2">
-        <div className="w-full bg-blue-500/20 rounded-t-md h-[40%]"></div>
-        <div className="w-full bg-blue-500/40 rounded-t-md h-[60%]"></div>
-        <div className="w-full bg-brand-primary rounded-t-md h-[85%] relative shadow-lg shadow-blue-500/30"></div>
-        <div className="w-full bg-blue-500/40 rounded-t-md h-[55%]"></div>
+      <div className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-600'} mb-4`}>
+        Excited to announce I'll be joining Tech Innovations Inc. as a Senior Developer! 🎉
       </div>
-      <div className="flex justify-between text-[10px] text-gray-400 font-medium">
-        <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span>
+      <div className="flex gap-2">
+         <span className="text-xs bg-blue-50 text-blue-600 px-2 py-1 rounded">Engineering</span>
+         <span className="text-xs bg-green-50 text-green-600 px-2 py-1 rounded">Career Update</span>
       </div>
     </div>
 
@@ -46,12 +41,12 @@ const DashboardGraphic = ({ isDark }) => (
       absolute -right-12 top-12 p-3 rounded-xl shadow-xl border flex items-center gap-3 animate-pulse-slow
       ${isDark ? 'glass border-brand-dark-border' : 'glass border-brand-light-border'}
     `}>
-       <div className="w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 font-bold text-xs">
-          🏆
+       <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-600 font-bold text-xs">
+          ✓
        </div>
        <div>
-          <p className={`text-xs font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>Rank #1</p>
-          <p className="text-[10px] text-gray-400">BITS Pilani</p>
+          <p className={`text-xs font-bold ${isDark ? 'text-white' : 'text-slate-900'}`}>New Connection</p>
+          <p className="text-[10px] text-gray-400">Sarah Jenkins</p>
        </div>
     </div>
   </div>
@@ -71,9 +66,9 @@ export default function LandingPage() {
         <div className="flex items-center gap-2">
           {/* Logo */}
           <div className="w-8 h-8 rounded-lg bg-brand-primary flex items-center justify-center text-white font-bold text-lg shadow-lg shadow-blue-500/30">
-            U
+            P
           </div>
-          <span className="text-xl font-bold tracking-tight">UniConnect</span>
+          <span className="text-xl font-bold tracking-tight">ProConnect</span>
         </div>
         
         {/* Desktop Links */}
@@ -113,7 +108,7 @@ export default function LandingPage() {
               isDark ? 'bg-orange-500/10 border-orange-500/20 text-orange-400' : 'bg-orange-50 border-orange-100 text-orange-600'
           }`}>
              <span className="w-2 h-2 rounded-full bg-current"></span> 
-             Backed by Top Institutes
+             A Platform for Professionals
           </div>
 
           <h1 className={`text-5xl lg:text-7xl font-bold leading-[1.1] tracking-tight ${isDark ? 'text-white' : 'text-slate-900'}`}>
@@ -122,7 +117,7 @@ export default function LandingPage() {
           </h1>
 
           <p className={`text-lg leading-relaxed max-w-md ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-            Take control of your student portfolio. Connect with institutes, win hackathons, and build a career that matters.
+            Take control of your professional portfolio. Connect with peers, share updates, and build a career that matters.
           </p>
 
           {/* Action Buttons */}
@@ -141,11 +136,11 @@ export default function LandingPage() {
 
           {/* Logos */}
           <div className="pt-10">
-            <p className="text-xs font-bold uppercase tracking-widest mb-6 opacity-40">Trusted by 500+ Colleges</p>
+            <p className="text-xs font-bold uppercase tracking-widest mb-6 opacity-40">Trusted by Professionals From</p>
             <div className="flex gap-8 items-center opacity-40 grayscale hover:grayscale-0 transition-all duration-500">
-                <span className="text-xl font-bold">IIT Bombay</span>
-                <span className="text-xl font-bold">BITS</span>
-                <span className="text-xl font-bold">NIT Trichy</span>
+                <span className="text-xl font-bold">Google</span>
+                <span className="text-xl font-bold">Microsoft</span>
+                <span className="text-xl font-bold">Amazon</span>
             </div>
           </div>
         </div>

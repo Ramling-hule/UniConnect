@@ -5,9 +5,22 @@ import jwt from "jsonwebtoken";
 import { env } from "../config/env.js";
 import EmailService from "./EmailService.js";
 import CacheService from "./CacheService.js";
+import * as otplib from "otplib";
+const { authenticator } = otplib;
+import QRCode from "qrcode";
+import { OAuth2Client } from "google-auth-library";
 
+const googleClient = new OAuth2Client(env.googleClientId);
 const sha256 = (plainText) => crypto.createHash("sha256").update(plainText).digest("hex");
 
+/**
+ * AuthService — authentication, authorisation, and session lifecycle.
+ *
+ * SOLID applied:
+ *  - SRP  : one class owns auth logic; thin controllers handle HTTP concerns.
+ *  - DRY  : `_createSession()` de-duplicates the token-generation block that was
+ *           previously repeated in login(), verifyMfaLogin(), and googleSignIn().
+ */
 class AuthService {
   generateAccessToken(user) {
     return jwt.sign(
@@ -18,23 +31,66 @@ class AuthService {
       env.jwtSecret,
       { 
         expiresIn: "15m",
-        issuer: "uniconnect-api",
-        audience: "uniconnect-client",
+        issuer: "proconnect-api",
+        audience: "proconnect-client",
         jwtid: crypto.randomUUID()
       }
     );
   }
 
+  /**
+   * Private helper: creates a refresh-token record + session cache entry and
+   * returns the tokens needed to respond to the client.
+   * @param {User}   user
+   * @param {object} deviceInfo  - { ipAddress, userAgent }
+   * @returns {{ accessToken, rawRefreshToken, sessionId }}
+   */
+  async _createSession(user, deviceInfo) {
+    const sessionId = crypto.randomUUID();
+    const accessToken = this.generateAccessToken(user);
+    const rawRefreshToken = crypto.randomBytes(40).toString('hex');
+    const refreshHash = sha256(rawRefreshToken);
+
+    await RefreshToken.create({
+      user: user._id,
+      tokenHash: refreshHash,
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      deviceInfo,
+    });
+
+    await CacheService.setSession(user._id, sessionId, 30 * 24 * 60 * 60, {
+      tokenVersion: user.tokenVersion || 1,
+      ip: deviceInfo.ipAddress,
+    });
+
+    return { accessToken, rawRefreshToken, sessionId };
+  }
+
   async register({ name, username, institute, email, password }) {
     const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      const error = new Error("User already exists");
+
+    // BUG FIX 2: If the user exists but is NOT verified (e.g. email failed last time),
+    // resend a fresh OTP instead of blocking them with "User already exists".
+    if (existingUser && existingUser.isVerified) {
+      const error = new Error("An account with this email already exists.");
       error.status = 400;
       throw error;
     }
 
-    const otp = crypto.randomInt(100000, 999999).toString();
+    const otp = crypto.randomInt(1000, 9999).toString();
     const otpHash = sha256(otp);
+
+    if (existingUser && !existingUser.isVerified) {
+      // Reuse existing record — just refresh the OTP and reset attempts
+      existingUser.verificationOtpHash = otpHash;
+      existingUser.verificationOtpExpires = Date.now() + 10 * 60 * 1000;
+      existingUser.verificationAttempts = 0;
+
+      // BUG FIX 1: Send email BEFORE saving. If email fails, nothing is persisted.
+      await EmailService.sendOtpEmail(email, otp);
+      await existingUser.save();
+      return existingUser._id;
+    }
 
     const newUser = new User({
       name,
@@ -48,8 +104,10 @@ class AuthService {
       verificationAttempts: 0
     });
 
-    await newUser.save();
+    // BUG FIX 1: Send email BEFORE saving. If email fails, no zombie user is
+    // left in the DB — the user can safely try registering again.
     await EmailService.sendOtpEmail(email, otp);
+    await newUser.save();
 
     return newUser._id;
   }
@@ -97,6 +155,12 @@ class AuthService {
     const user = await User.findOne({ email });
     if (!user) throw { status: 401, message: "Invalid email or password" };
 
+    // BUG FIX 3: Block unverified users with a clear, actionable message.
+    // Previously they'd fail silently or get a confusing error.
+    if (!user.isVerified) {
+      throw { status: 403, message: "Please verify your email before logging in. Check your inbox for the OTP." };
+    }
+
     if (user.lockedUntil && user.lockedUntil > Date.now()) {
       const remaining = Math.ceil((user.lockedUntil - Date.now()) / 60000);
       throw { status: 423, message: `Account is locked. Please try again in ${remaining} minutes.` };
@@ -116,26 +180,110 @@ class AuthService {
 
     user.failedLoginAttempts = 0;
     user.lockedUntil = undefined;
+
+    if (user.mfaEnabled) {
+      const tempToken = crypto.randomBytes(32).toString("hex");
+      user.tempMfaToken = tempToken;
+      await user.save();
+      return { mfaRequired: true, tempToken, userId: user._id };
+    }
+
     await user.save();
 
-    const sessionId = crypto.randomUUID();
-    const accessToken = this.generateAccessToken(user);
-    const rawRefreshToken = crypto.randomBytes(40).toString("hex");
-    const refreshHash = sha256(rawRefreshToken);
+    const session = await this._createSession(user, deviceInfo);
+    return { user, ...session };
+  }
 
-    await RefreshToken.create({
-      user: user._id,
-      tokenHash: refreshHash,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      deviceInfo
-    });
+  async setupMfa(userId) {
+    const user = await User.findById(userId);
+    if (!user) throw { status: 404, message: "User not found" };
 
-    await CacheService.setSession(user._id, sessionId, 30 * 24 * 60 * 60, {
-      tokenVersion: user.tokenVersion || 1,
-      ip: deviceInfo.ipAddress
-    });
+    const secret = authenticator.generateSecret();
+    const otpauthUrl = authenticator.keyuri(user.email, 'ProConnect', secret);
+    const qrCodeImage = await QRCode.toDataURL(otpauthUrl);
 
-    return { user, accessToken, rawRefreshToken, sessionId };
+    user.mfaSecret = secret;
+    user.mfaEnabled = false;
+    await user.save();
+
+    return { secret, qrCodeImage };
+  }
+
+  async enableMfa(userId, code) {
+    const user = await User.findById(userId);
+    if (!user || !user.mfaSecret) throw { status: 400, message: "MFA setup not initiated" };
+
+    const isValid = authenticator.verify({ token: code, secret: user.mfaSecret });
+    if (!isValid) throw { status: 400, message: "Invalid MFA code" };
+
+    user.mfaEnabled = true;
+    await user.save();
+    return true;
+  }
+
+  async verifyMfaLogin({ userId, tempToken, code, deviceInfo }) {
+    const user = await User.findById(userId);
+    if (!user) throw { status: 401, message: "Invalid session" };
+
+    if (user.tempMfaToken !== tempToken) throw { status: 401, message: "Invalid or expired session" };
+
+    const isValid = authenticator.verify({ token: code, secret: user.mfaSecret });
+    if (!isValid) {
+      user.failedLoginAttempts += 1;
+      await user.save();
+      throw { status: 401, message: "Invalid MFA code" };
+    }
+
+    user.failedLoginAttempts = 0;
+    user.tempMfaToken = undefined;
+    await user.save();
+
+    const session = await this._createSession(user, deviceInfo);
+    return { user, ...session };
+  }
+
+  async googleSignIn({ credential, deviceInfo }) {
+    if (!credential) throw { status: 400, message: "Google credential is required" };
+    let payload;
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: env.googleClientId,
+      });
+      payload = ticket.getPayload();
+    } catch (err) {
+      throw { status: 401, message: "Invalid Google token" };
+    }
+    
+    const { email, name, sub, picture } = payload;
+
+    let user = await User.findOne({ email });
+    if (!user) {
+      user = new User({
+        name,
+        email,
+        googleId: sub,
+        username: email.split('@')[0] + crypto.randomInt(1000, 9999),
+        institute: "Google Auth",
+        isVerified: true,
+        password: crypto.randomBytes(16).toString("hex"),
+        profilePicture: picture || ""
+      });
+      await user.save();
+    } else if (!user.googleId) {
+      user.googleId = sub;
+      await user.save();
+    }
+
+    if (user.mfaEnabled) {
+      const tempToken = crypto.randomBytes(32).toString("hex");
+      user.tempMfaToken = tempToken;
+      await user.save();
+      return { mfaRequired: true, tempToken, userId: user._id };
+    }
+
+    const session = await this._createSession(user, deviceInfo);
+    return { user, ...session };
   }
 
   async rotateRefreshToken(rawToken, deviceInfo) {

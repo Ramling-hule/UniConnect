@@ -4,10 +4,48 @@ import { env } from "../config/env.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
 
+/**
+ * authController — Thin HTTP adapter layer.
+ *
+ * SOLID applied:
+ *  - SRP : controller only handles HTTP concerns (parse → delegate → respond → error).
+ *  - DRY : `_setRefreshCookie()` eliminates the 7-line cookie block that was duplicated
+ *          across loginUser, verifyMfaLogin, and googleSignIn.
+ *  - DIP : depends on AuthService and AuditService abstractions.
+ */
+
+// ── Shared helpers ─────────────────────────────────────────────────────────────
+
+/** Extracts IP + user-agent from the request for device-tracking. */
 const getDeviceInfo = (req) => ({
   ipAddress: req.ip || req.headers["x-forwarded-for"] || req.socket.remoteAddress,
-  userAgent: req.headers["user-agent"]
+  userAgent: req.headers["user-agent"],
 });
+
+/**
+ * Sets the httpOnly refresh-token cookie on the response.
+ * Centralising this prevents the subtle bugs that come from copy-pasting cookie options.
+ */
+const setRefreshCookie = (res, rawRefreshToken) => {
+  res.cookie("refreshToken", rawRefreshToken, {
+    httpOnly: true,
+    secure:   env.nodeEnv === "production",
+    sameSite: "lax",
+    path:     "/api/auth/refresh-token",
+    maxAge:   30 * 24 * 60 * 60 * 1000, // 30 days
+  });
+};
+
+/** Builds the standard user payload returned on successful authentication. */
+const formatUserResponse = (user) => ({
+  _id:        user._id,
+  name:       user.name,
+  username:   user.username,
+  email:      user.email,
+  institute:  user.institute,
+});
+
+// ── Auth handlers ──────────────────────────────────────────────────────────────
 
 // 1. REGISTER
 export const registerUser = asyncHandler(async (req, res, next) => {
@@ -17,13 +55,16 @@ export const registerUser = asyncHandler(async (req, res, next) => {
     res.status(201).json({ message: "Verification OTP sent", userId });
   } catch (error) {
     if (error.status === 400 && error.message === "User already exists") {
-      await AuditService.log(null, "REGISTRATION_ATTEMPT", req, { email: req.body.email, reason: "Email already exists" });
+      await AuditService.log(null, "REGISTRATION_ATTEMPT", req, {
+        email: req.body.email,
+        reason: "Email already exists",
+      });
     }
     return next(new AppError(error.message, error.status || 500));
   }
 });
 
-// 2. VERIFY
+// 2. VERIFY EMAIL
 export const verifyEmail = asyncHandler(async (req, res, next) => {
   try {
     const user = await AuthService.verifyEmail(req.body);
@@ -37,36 +78,19 @@ export const verifyEmail = asyncHandler(async (req, res, next) => {
 // 3. LOGIN
 export const loginUser = asyncHandler(async (req, res, next) => {
   try {
-    const deviceInfo = getDeviceInfo(req);
-    const result = await AuthService.login({ ...req.body, deviceInfo });
+    const result = await AuthService.login({ ...req.body, deviceInfo: getDeviceInfo(req) });
 
-    // Set secure HTTP-Only cookie
-    res.cookie("refreshToken", result.rawRefreshToken, {
-      httpOnly: true,
-      secure: env.nodeEnv === "production",
-      sameSite: "lax",
-      path: "/api/auth/refresh-token",
-      maxAge: 30 * 24 * 60 * 60 * 1000
-    });
+    if (result.mfaRequired) {
+      return res.json({ mfaRequired: true, tempToken: result.tempToken, userId: result.userId });
+    }
 
+    setRefreshCookie(res, result.rawRefreshToken);
     await AuditService.log(result.user._id, "LOGIN_SUCCESS", req, { sessionId: result.sessionId });
-
-    res.json({
-      accessToken: result.accessToken,
-      user: {
-        _id: result.user._id,
-        name: result.user.name,
-        username: result.user.username,
-        email: result.user.email,
-        institute: result.user.institute,
-      }
-    });
+    res.json({ accessToken: result.accessToken, user: formatUserResponse(result.user) });
   } catch (error) {
     if (error.userId) {
       await AuditService.log(error.userId, "LOGIN_FAILURE", req);
-      if (error.locked) {
-        await AuditService.log(error.userId, "ACCOUNT_LOCKOUT", req);
-      }
+      if (error.locked) await AuditService.log(error.userId, "ACCOUNT_LOCKOUT", req);
     }
     return next(new AppError(error.message, error.status || 500));
   }
@@ -74,23 +98,14 @@ export const loginUser = asyncHandler(async (req, res, next) => {
 
 // 4. REFRESH TOKEN ROTATION
 export const rotateRefreshToken = asyncHandler(async (req, res, next) => {
-  const rawToken = req.cookies?.refreshToken;
-  const deviceInfo = getDeviceInfo(req);
-
   try {
-    const result = await AuthService.rotateRefreshToken(rawToken, deviceInfo);
-
-    res.cookie("refreshToken", result.newRawRefreshToken, {
-      httpOnly: true,
-      secure: env.nodeEnv === "production",
-      sameSite: "lax",
-      path: "/api/auth/refresh-token",
-      maxAge: 30 * 24 * 60 * 60 * 1000
-    });
-
+    const result = await AuthService.rotateRefreshToken(
+      req.cookies?.refreshToken,
+      getDeviceInfo(req),
+    );
+    setRefreshCookie(res, result.newRawRefreshToken);
     await AuditService.log(result.user._id, "REFRESH_TOKEN_SUCCESS", req);
     res.json({ accessToken: result.newAccessToken });
-
   } catch (error) {
     if (error.reuseAttempt) {
       await AuditService.log(error.user._id, "REFRESH_TOKEN_REUSE_ATTEMPT", req, { tokenHash: error.tokenHash });
@@ -103,9 +118,7 @@ export const rotateRefreshToken = asyncHandler(async (req, res, next) => {
 // 5. FORGOT PASSWORD
 export const forgotPassword = asyncHandler(async (req, res, next) => {
   const user = await AuthService.forgotPassword(req.body.email);
-  if (user) {
-    await AuditService.log(user._id, "PASSWORD_RESET_REQUESTED", req);
-  }
+  if (user) await AuditService.log(user._id, "PASSWORD_RESET_REQUESTED", req);
   // Always return success to prevent email enumeration
   res.status(200).json({ message: "If that email exists, a reset link has been sent." });
 });
@@ -124,9 +137,7 @@ export const resetPassword = asyncHandler(async (req, res, next) => {
 // 7. LOGOUT (SINGLE DEVICE)
 export const logoutUser = asyncHandler(async (req, res, next) => {
   const userId = await AuthService.logout(req.cookies?.refreshToken, req.ip);
-  if (userId) {
-    await AuditService.log(userId, "LOGOUT_SUCCESS", req);
-  }
+  if (userId) await AuditService.log(userId, "LOGOUT_SUCCESS", req);
   res.clearCookie("refreshToken");
   res.json({ message: "Logged out successfully" });
 });
@@ -137,4 +148,49 @@ export const logoutAllDevices = asyncHandler(async (req, res, next) => {
   res.clearCookie("refreshToken");
   await AuditService.log(req.user._id, "LOGOUT_ALL_DEVICES", req);
   res.json({ message: "Logged out from all devices" });
+});
+
+// 9. MFA SETUP
+export const setupMfa = asyncHandler(async (req, res, next) => {
+  const result = await AuthService.setupMfa(req.user._id);
+  res.json(result);
+});
+
+// 10. MFA ENABLE
+export const enableMfa = asyncHandler(async (req, res, next) => {
+  await AuthService.enableMfa(req.user._id, req.body.code);
+  res.json({ message: "MFA enabled successfully" });
+});
+
+// 11. MFA LOGIN VERIFY
+export const verifyMfaLogin = asyncHandler(async (req, res, next) => {
+  try {
+    const result = await AuthService.verifyMfaLogin({ ...req.body, deviceInfo: getDeviceInfo(req) });
+    setRefreshCookie(res, result.rawRefreshToken);
+    await AuditService.log(result.user._id, "MFA_LOGIN_SUCCESS", req, { sessionId: result.sessionId });
+    res.json({ accessToken: result.accessToken, user: formatUserResponse(result.user) });
+  } catch (error) {
+    if (error.userId) await AuditService.log(error.userId, "MFA_LOGIN_FAILURE", req);
+    return next(new AppError(error.message, error.status || 401));
+  }
+});
+
+// 12. GOOGLE SIGN IN
+export const googleSignIn = asyncHandler(async (req, res, next) => {
+  try {
+    const result = await AuthService.googleSignIn({
+      credential: req.body.credential,
+      deviceInfo: getDeviceInfo(req),
+    });
+
+    if (result.mfaRequired) {
+      return res.json({ mfaRequired: true, tempToken: result.tempToken, userId: result.userId });
+    }
+
+    setRefreshCookie(res, result.rawRefreshToken);
+    await AuditService.log(result.user._id, "GOOGLE_LOGIN_SUCCESS", req, { sessionId: result.sessionId });
+    res.json({ accessToken: result.accessToken, user: formatUserResponse(result.user) });
+  } catch (error) {
+    return next(new AppError(error.message, error.status || 500));
+  }
 });

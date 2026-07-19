@@ -4,25 +4,33 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
 import { authStart, authSuccess, authFailure, resetAuthStatus } from '@/redux/features/authSlice';
-import { API_BASE_URL } from '@/utils/config';
+import apiClient from '@/services/apiClient';
+import { extractErrorMessage } from '@/utils/errorHelper';
+import toast from 'react-hot-toast';
+import { GoogleLogin } from '@react-oauth/google';
+import { loginSchema, getZodError } from '@/utils/schemas';
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
   const router = useRouter();
   const dispatch = useDispatch();
   
-  // Get Global State from Redux
-  const { isLoading, error, user } = useSelector((state) => state.auth);
+  const { isLoading, error, user, mfaRequired, tempMfaToken, tempUserId } = useSelector((state) => state.auth);
   
   const [formData, setFormData] = useState({ email: '', password: '' });
+  const [mfaCode, setMfaCode] = useState('');
   const [isDark, setIsDark] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  // Redirect if already logged in
   useEffect(() => {
-    if (user) {
+    if (user && !mfaRequired) {
       router.push('/dashboard');
     }
+  }, [user, mfaRequired, router]);
+
+  useEffect(() => {
     return () => dispatch(resetAuthStatus());
-  }, [user, router, dispatch]);
+  }, [dispatch]);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -30,86 +38,54 @@ export default function LoginPage() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    try {
+      loginSchema.parse({ email: formData.email, password: formData.password });
+    } catch (err) {
+      dispatch(authFailure(getZodError(err)));
+      return;
+    }
     dispatch(authStart()); 
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
-
-      // data contains: { _id, name, username, email, institute, token }
-      dispatch(authSuccess(data)); 
-      router.push('/dashboard');
-      // Redirect happens via useEffect when 'user' state updates
-
+      const { data } = await apiClient.post('/api/auth/login', formData);
+      dispatch(authSuccess(data));
+      if (!data.mfaRequired) toast.success('Welcome back!');
     } catch (err) {
-      dispatch(authFailure(err.message)); 
+      const msg = extractErrorMessage(err, 'Login failed');
+      dispatch(authFailure(msg));
+      toast.error(msg);
     }
   };
 
-  return (
-"use client";
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useDispatch, useSelector } from 'react-redux';
-import { authStart, authSuccess, authFailure, resetAuthStatus } from '@/redux/features/authSlice';
-import { API_BASE_URL } from '@/utils/config';
-
-export default function LoginPage() {
-  const router = useRouter();
-  const dispatch = useDispatch();
-  
-  // Get Global State from Redux
-  const { isLoading, error, user } = useSelector((state) => state.auth);
-  
-  const [formData, setFormData] = useState({ email: '', password: '' });
-  const [isDark, setIsDark] = useState(false);
-
-  // Redirect if already logged in
-  useEffect(() => {
-    if (user) {
-      router.push('/dashboard');
+  const handleGoogleSuccess = async (credentialResponse) => {
+    dispatch(authStart());
+    try {
+      const { data } = await apiClient.post('/api/auth/google', { credential: credentialResponse.credential });
+      dispatch(authSuccess(data));
+      if (!data.mfaRequired) toast.success('Welcome back!');
+    } catch (err) {
+      const msg = extractErrorMessage(err, 'Google Login failed');
+      dispatch(authFailure(msg));
+      toast.error(msg);
     }
-    return () => dispatch(resetAuthStatus());
-  }, [user, router, dispatch]);
-
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleLogin = async (e) => {
+  const handleMfaSubmit = async (e) => {
     e.preventDefault();
-    dispatch(authStart()); 
-
+    dispatch(authStart());
     try {
-      const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+      const { data } = await apiClient.post('/api/auth/login/mfa', {
+        userId: tempUserId,
+        tempToken: tempMfaToken,
+        code: mfaCode,
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || 'Login failed');
-      }
-
-      // data contains: { _id, name, username, email, institute, token }
-      dispatch(authSuccess(data)); 
+      dispatch(authSuccess(data));
+      toast.success('MFA verification successful!');
       router.push('/dashboard');
-      // Redirect happens via useEffect when 'user' state updates
-
     } catch (err) {
-      dispatch(authFailure(err.message)); 
+      const msg = extractErrorMessage(err, 'MFA Verification failed');
+      dispatch(authFailure(msg));
+      toast.error(msg);
     }
   };
 
@@ -124,8 +100,12 @@ export default function LoginPage() {
         
         <div className="text-center mb-8">
           <div className="w-12 h-12 mx-auto rounded-xl bg-brand-primary flex items-center justify-center text-xl font-bold text-white mb-4 shadow-lg shadow-brand-primary/30">U</div>
-          <h1 className="text-2xl font-bold tracking-tight">Welcome back</h1>
-          <p className="text-sm opacity-60 mt-2">Enter your details to access your dashboard.</p>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {mfaRequired ? 'Two-Factor Authentication' : 'Welcome back'}
+          </h1>
+          <p className="text-sm opacity-60 mt-2">
+            {mfaRequired ? 'Enter the code from your authenticator app.' : 'Enter your details to access your dashboard.'}
+          </p>
         </div>
 
         {error && (
@@ -134,46 +114,99 @@ export default function LoginPage() {
           </div>
         )}
 
-        <form className="space-y-4" onSubmit={handleLogin}>
-          <div>
-            <label className="text-xs font-bold uppercase opacity-70 mb-1 block">Email</label>
-            <input 
-              name="email"
-              type="email" 
-              required
-              value={formData.email}
-              onChange={handleChange}
-              placeholder="student@institute.edu"
-              className={`w-full p-3 rounded-xl border outline-none focus:ring-2 transition-all ${isDark ? 'bg-slate-900 border-slate-700 focus:ring-brand-primary' : 'bg-slate-50 border-slate-200 focus:ring-brand-primary'}`}
-            />
-          </div>
-          
-          <div>
-            <label className="text-xs font-bold uppercase opacity-70 mb-1 block">Password</label>
-            <input 
-              name="password"
-              type="password" 
-              required
-              value={formData.password}
-              onChange={handleChange}
-              placeholder="••••••••"
-              className={`w-full p-3 rounded-xl border outline-none focus:ring-2 transition-all ${isDark ? 'bg-slate-900 border-slate-700 focus:ring-brand-primary' : 'bg-slate-50 border-slate-200 focus:ring-brand-primary'}`}
-            />
-          </div>
+        {mfaRequired ? (
+          <form className="space-y-4" onSubmit={handleMfaSubmit}>
+            <div>
+              <label className="text-xs font-bold uppercase opacity-70 mb-1 block">Authentication Code</label>
+              <input 
+                name="mfaCode"
+                type="text" 
+                required
+                value={mfaCode}
+                onChange={(e) => setMfaCode(e.target.value)}
+                placeholder="123456"
+                className={`w-full p-3 rounded-xl border outline-none focus:ring-2 transition-all text-center tracking-[0.5em] text-lg font-mono ${isDark ? 'bg-slate-900 border-slate-700 focus:ring-brand-primary' : 'bg-slate-50 border-slate-200 focus:ring-brand-primary'}`}
+              />
+            </div>
+            <button 
+              type="submit"
+              disabled={isLoading}
+              className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all hover:-translate-y-0.5 shadow-lg shadow-brand-primary/20 disabled:opacity-50 disabled:cursor-not-allowed
+                ${isDark ? 'bg-brand-primary text-white hover:brightness-110' : 'bg-brand-primary text-white hover:brightness-110'}`}
+            >
+              {isLoading ? 'Verifying...' : 'Verify Code'}
+            </button>
+          </form>
+        ) : (
+          <>
+            <form className="space-y-4" onSubmit={handleLogin}>
+              <div>
+                <label className="text-xs font-bold uppercase opacity-70 mb-1 block">Email</label>
+                <input 
+                  name="email"
+                  type="email" 
+                  required
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="student@institute.edu"
+                  className={`w-full p-3 rounded-xl border outline-none focus:ring-2 transition-all ${isDark ? 'bg-slate-900 border-slate-700 focus:ring-brand-primary' : 'bg-slate-50 border-slate-200 focus:ring-brand-primary'}`}
+                />
+              </div>
+              
+              <div>
+                <label className="text-xs font-bold uppercase opacity-70 mb-1 block">Password</label>
+                <div className="relative">
+                  <input 
+                    name="password"
+                    type={showPassword ? "text" : "password"} 
+                    required
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="••••••••"
+                    className={`w-full p-3 rounded-xl border outline-none focus:ring-2 transition-all pr-10 ${isDark ? 'bg-slate-900 border-slate-700 focus:ring-brand-primary' : 'bg-slate-50 border-slate-200 focus:ring-brand-primary'}`}
+                  />
+                  <button 
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
 
-          <button 
-            type="submit"
-            disabled={isLoading}
-            className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all hover:-translate-y-0.5 shadow-lg shadow-brand-primary/20 disabled:opacity-50 disabled:cursor-not-allowed
-              ${isDark ? 'bg-brand-primary text-white hover:brightness-110' : 'bg-brand-primary text-white hover:brightness-110'}`}
-          >
-            {isLoading ? 'Signing In...' : 'Sign In'}
-          </button>
-        </form>
+              <button 
+                type="submit"
+                disabled={isLoading}
+                className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all hover:-translate-y-0.5 shadow-lg shadow-brand-primary/20 disabled:opacity-50 disabled:cursor-not-allowed
+                  ${isDark ? 'bg-brand-primary text-white hover:brightness-110' : 'bg-brand-primary text-white hover:brightness-110'}`}
+              >
+                {isLoading ? 'Signing In...' : 'Sign In'}
+              </button>
+            </form>
+            
+            <div className="mt-6 flex items-center justify-center space-x-2 opacity-50 text-sm">
+              <div className="h-px bg-current flex-1"></div>
+              <span>OR</span>
+              <div className="h-px bg-current flex-1"></div>
+            </div>
 
-        <p className="text-center text-xs mt-8 opacity-60">
-          Don&apos;t have an account? <Link href="/register" className="font-bold underline hover:opacity-100 text-brand-primary">Sign up</Link>
-        </p>
+            <div className="mt-6 flex justify-center">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => {
+                  dispatch(authFailure("Google Login Failed"));
+                }}
+                theme={isDark ? "filled_black" : "outline"}
+                shape="rectangular"
+              />
+            </div>
+
+            <p className="text-center text-xs mt-8 opacity-60">
+              Don&apos;t have an account? <Link href="/register" className="font-bold underline hover:opacity-100 text-brand-primary">Sign up</Link>
+            </p>
+          </>
+        )}
 
       </div>
     </div>

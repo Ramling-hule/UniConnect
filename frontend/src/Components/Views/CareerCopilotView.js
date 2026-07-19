@@ -390,7 +390,7 @@ export default function CareerCopilotView() {
                   </div>
                   <div>
                     <h4 className="text-sm font-bold dark:text-white">Profile Readiness</h4>
-                    <p className="text-[10px] text-slate-500">Based on UniConnect CV completer</p>
+                    <p className="text-[10px] text-slate-500">Based on ProConnect CV completer</p>
                   </div>
                 </div>
 

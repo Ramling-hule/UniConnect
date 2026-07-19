@@ -5,6 +5,10 @@ import notificationRoutes from './notificationRoutes.js';
 import messageRoutes from './messageRoutes.js';
 import uploadRoutes from './uploadRoutes.js';
 import careerRoutes from './careerRoutes.js';
+import mentorRoutes from './mentorRoutes.js';
+import bookingRoutes from './bookingRoutes.js';
+import paymentRoutes from './paymentRoutes.js';
+import reviewRoutes from './reviewRoutes.js';
 
 const routes = [
   ['/api/auth', authRoutes],
@@ -14,6 +18,10 @@ const routes = [
   ['/api/messages', messageRoutes],
   ['/api/upload', uploadRoutes],
   ['/api/career', careerRoutes],
+  ['/api/mentor', mentorRoutes],
+  ['/api/booking', bookingRoutes],
+  ['/api/payment', paymentRoutes],
+  ['/api/review', reviewRoutes],
 ];
 
 export const registerRoutes = (app) => {

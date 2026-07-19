@@ -1,7 +1,8 @@
 "use client";
 import React, { useEffect, useState } from 'react';
 import { UserPlus } from 'lucide-react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { logout } from '@/redux/features/authSlice';
 import { API_BASE_URL } from '@/utils/config';
 
 const SuggestionSkeleton = ({ isDark }) => (
@@ -25,6 +26,7 @@ export default function Suggestions() {
   const [users, setUsers] = useState([]);
   const token = useSelector((state) => state.auth.user?.token);
   const [loading, setLoading] = useState(true);
+  const dispatch = useDispatch();
 
   useEffect(() => {
     const fetchSuggestions = async () => {
@@ -45,7 +47,9 @@ export default function Suggestions() {
         if (res.ok) {
            setUsers(await res.json());
         } else {
-           // Handle 401 explicitly if needed
+           if (res.status === 401) {
+             dispatch(logout());
+           }
            console.error("Failed to fetch suggestions:", res.status);
         }
       } catch (err) {

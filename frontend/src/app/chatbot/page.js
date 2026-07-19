@@ -11,7 +11,7 @@ const ChatbotPage = () => {
   const [messages, setMessages] = useState([
     {
       role: "ai",
-      content: "Hello! I am UniConnect AI. I can write code, lists, and tables for you.",
+      content: "Hello! I am ProConnect AI. I can write code, lists, and tables for you.",
     },
   ]);
   const [isStreaming, setIsStreaming] = useState(false);
@@ -94,7 +94,7 @@ const ChatbotPage = () => {
       `}</style>
 
       <div style={styles.chatContainer}>
-        <div style={styles.header}>UniConnect AI</div>
+        <div style={styles.header}>ProConnect AI</div>
 
         <div style={styles.messagesArea}>
           {messages.map((msg, index) => (

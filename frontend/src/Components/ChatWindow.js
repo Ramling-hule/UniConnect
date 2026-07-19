@@ -4,7 +4,10 @@ import { useSelector, useDispatch } from 'react-redux';
 import { X, Send, Minimize2, Paperclip, Search, FileText, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { closeChat } from '@/redux/features/chatSlice';
 import io from 'socket.io-client';
+import apiClient from '@/services/apiClient';
 import { API_BASE_URL } from '@/utils/config';
+import toast from 'react-hot-toast';
+import { extractErrorMessage } from '@/utils/errorHelper';
 
 let socket; 
 
@@ -39,16 +42,8 @@ export default function ChatWindow() {
       // Tell the server we are active in this room and mark pending messages as read
       socket.emit('read_messages', { senderId: otherUserId, receiverId: currentUserId });
 
-      fetch(`${API_BASE_URL}/api/messages/${currentUserId}/${otherUserId}`, {
-        headers: {
-          Authorization: `Bearer ${user.token}`
-        }
-      })
-        .then(res => {
-            if (!res.ok) throw new Error("Failed to fetch");
-            return res.json();
-        })
-        .then(data => {
+      apiClient.get(`/api/messages/${currentUserId}/${otherUserId}`)
+        .then(({ data }) => {
             const msgs = data.data || data;
             if (Array.isArray(msgs)) {
                 setChatHistory(msgs);
@@ -144,16 +139,9 @@ export default function ChatWindow() {
     formData.append('file', file);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/upload`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${user.token}`
-        },
-        body: formData
+      const { data: uploadData } = await apiClient.post('/api/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
-
-      if (!res.ok) throw new Error("Upload failed");
-      const uploadData = await res.json();
 
       const roomId = getRoomId(currentUserId, otherUserId);
       const msgData = {
@@ -181,8 +169,9 @@ export default function ChatWindow() {
         }
       ]);
     } catch (err) {
-      console.error("File upload failed:", err);
-      alert("File upload failed. Please try again.");
+      const msg = extractErrorMessage(err, "File upload failed. Please try again.");
+      console.error("File upload failed:", msg);
+      toast.error(msg);
     } finally {
       setIsUploading(false);
     }

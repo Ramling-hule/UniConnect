@@ -10,7 +10,7 @@ const userSchema = new mongoose.Schema(
     institute: { type: String, required: true },
     role: {
       type: String,
-      enum: ["student", "admin", "institute"],
+      enum: ["student", "admin", "institute", "mentor"],
       default: "student",
     },
     isVerified: { type: Boolean, default: false },
@@ -45,12 +45,18 @@ const userSchema = new mongoose.Schema(
 
     // Token Versioning
     tokenVersion: { type: Number, default: 1 },
+
+    // Google Auth
+    googleId: { type: String, unique: true, sparse: true },
+
+    // Multi-Factor Authentication
+    mfaEnabled: { type: Boolean, default: false },
+    mfaSecret: { type: String },
+    tempMfaToken: { type: String }
   },
   { timestamps: true }
 );
 
-userSchema.index({ email: 1 });
-userSchema.index({ username: 1 });
 userSchema.index({ verificationOtpHash: 1 }, { sparse: true });
 userSchema.index({ passwordResetTokenHash: 1 }, { sparse: true });
 

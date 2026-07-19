@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import morgan from 'morgan';
+import { requestLogger, requestId } from './middlewares/requestLogger.js';
 import session from 'express-session';
 import cookieParser from 'cookie-parser';
 import { RedisStore } from 'connect-redis';
@@ -37,7 +37,8 @@ app.use(helmet({
   referrerPolicy: { policy: 'same-origin' }
 }));
 
-app.use(morgan('dev'));
+app.use(requestId);
+app.use(requestLogger);
 app.use(cors({
   origin: allowedOrigins,
   credentials: true,

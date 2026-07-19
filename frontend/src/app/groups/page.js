@@ -5,6 +5,7 @@ import { Users, Plus, Lock, Globe, Search, Shield, Clock, Send } from 'lucide-re
 import GroupChatWindow from '@/Components/GroupChatWindow'; 
 import { API_BASE_URL } from '@/utils/config';
 import { toast } from 'react-hot-toast'; // Assuming you have toast for notifications
+import { groupSchema, getZodError } from '@/utils/schemas';
 
 export default function GroupsPage() {
   const { user } = useSelector((state) => state.auth);
@@ -68,6 +69,14 @@ export default function GroupsPage() {
 
   const handleCreate = async (e) => {
      e.preventDefault();
+     
+     try {
+       groupSchema.parse({ name: newName, description: newDesc });
+     } catch (err) {
+       toast.error(getZodError(err));
+       return;
+     }
+
      const formData = new FormData();
      formData.append('name', newName);
      formData.append('description', newDesc);

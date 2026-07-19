@@ -8,6 +8,8 @@ import 'tldraw/tldraw.css';
 import { API_BASE_URL } from '@/utils/config';
 import { useSelector } from 'react-redux';
 import { io } from "socket.io-client"; 
+import apiClient from '@/services/apiClient';
+import toast from 'react-hot-toast';
 
 let socket; 
 
@@ -31,7 +33,7 @@ const CopilotSession = () => {
 
   // --- 1. SOCKET.IO (Chat/User List) ---
   useEffect(() => {
-    const serverUrl = API_BASE_URL || "http://localhost:5002";
+    const serverUrl = API_BASE_URL;
     socket = io(serverUrl, {
       transports: ['websocket', 'polling'],
       reconnection: true,
@@ -71,16 +73,7 @@ const CopilotSession = () => {
     setIsTyping(true);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/career/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${user.token}`
-        },
-        body: JSON.stringify({ query: userMessage.content })
-      });
-
-      const data = await res.json();
+      const { data } = await apiClient.post('/api/career/chat', { query: userMessage.content });
       if (data.success) {
         setMessages((prev) => [...prev, { role: 'assistant', content: data.text }]);
       } else {
@@ -96,7 +89,7 @@ const CopilotSession = () => {
 
   const copySessionId = () => {
     navigator.clipboard.writeText(sessionId);
-    alert("Session ID copied to clipboard!");
+    toast.success("Session ID copied to clipboard!");
   };
 
   return (
@@ -113,7 +106,7 @@ const CopilotSession = () => {
           </button>
           
           <h3 className="text-2xl font-bold text-brand-primary tracking-tight">
-            UniConnect
+            ProConnect
           </h3>
           
           {/* Connection Status Indicators */}

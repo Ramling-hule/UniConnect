@@ -2,7 +2,9 @@
 import React, { useState } from 'react';
 import { useSelector } from 'react-redux';
 import { X, Loader, Save } from 'lucide-react';
-import { API_BASE_URL } from '@/utils/config';
+import apiClient from '@/services/apiClient';
+import toast from 'react-hot-toast';
+import { extractErrorMessage } from '@/utils/errorHelper';
 
 export default function EditProfileModal({ isOpen, onClose, userData, onUpdate }) {
   const { user } = useSelector((state) => state.auth);
@@ -34,34 +36,20 @@ export default function EditProfileModal({ isOpen, onClose, userData, onUpdate }
     setLoading(true);
 
     try {
-      const token = user?.token || localStorage.getItem('token');
-      
       const payload = {
          ...formData,
          skills: formData.skills.split(',').map(s => s.trim()).filter(s => s) 
       };
 
-      const res = await fetch(`${API_BASE_URL}/api/dashboard/user/profile`, {
-        method: 'PUT',
-        headers: { 
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(payload),
-      });
+      const { data } = await apiClient.put('/api/dashboard/user/profile', payload);
 
-      const data = await res.json(); // Always parse JSON first
-
-      if (res.ok) {
-        onUpdate(data); 
-        onClose();
-      } else {
-        // Now you will see the REAL error in the console (e.g., "User not found")
-        console.error("Update failed:", data.message || "Unknown error");
-        alert("Failed to update: " + (data.message || "Unknown error"));
-      }
+      onUpdate(data); 
+      onClose();
+      toast.success("Profile updated successfully!");
     } catch (err) {
-      console.error("Network Error:", err);
+      const msg = extractErrorMessage(err, "Failed to update profile");
+      console.error("Update failed:", msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }

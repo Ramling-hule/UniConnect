@@ -54,7 +54,7 @@ export default function ProfileLayout({ children }) {
               U
             </div>
             <span className={`text-xl font-bold hidden md:block ${isDark ? "text-white" : "text-slate-900"}`}>
-              UniConnect
+              ProConnect
             </span>
           </div>
 

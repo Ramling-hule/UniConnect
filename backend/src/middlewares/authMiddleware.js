@@ -15,8 +15,8 @@ export const protect = async (req, res, next) => {
 
       // Verify token
       const decoded = jwt.verify(token, env.jwtSecret, {
-        issuer: 'uniconnect-api',
-        audience: 'uniconnect-client'
+        issuer: 'proconnect-api',
+        audience: 'proconnect-client'
       });
 
       // Check User

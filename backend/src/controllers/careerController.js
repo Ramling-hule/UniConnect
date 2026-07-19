@@ -1,22 +1,21 @@
-import { GoogleGenAI } from '@google/genai';
 import { env } from '../config/env.js';
 import User from '../models/User.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import AppError from '../utils/AppError.js';
-let ai;
-if (env.geminiApiKey) {
-  ai = new GoogleGenAI({ apiKey: env.geminiApiKey });
-}
+import AiService from '../services/AiService.js';
 
-export const getCareerRecommendations = asyncHandler(async (req, res, next) => {
-  if (!ai) {
-    return next(new AppError('AI Career Copilot service is currently misconfigured. Gemini API key missing.', 500));
-  }
+/**
+ * careerController — Thin HTTP adapter for AI-powered career advice.
+ *
+ * SOLID applied:
+ *  - SRP : controller only handles HTTP concerns (parse → delegate → respond → error).
+ *  - DIP : depends on AiService abstraction, not the Gemini SDK directly.
+ *
+ * No module-level side effects — the SDK is initialised lazily inside AiService.
+ */
 
-  const user = await User.findById(req.user._id);
-  if (!user) return next(new AppError('User not found', 404));
-
-    const userProfileText = `
+/** Builds a compact text representation of a user's profile for AI prompts. */
+const buildProfileText = (user) => `
 Name: ${user.name}
 Headline: ${user.headline || 'None'}
 Institute: ${user.institute}
@@ -26,25 +25,35 @@ Education: ${JSON.stringify(user.education) || 'None'}
 Badges: ${user.badges?.join(', ') || 'None'}
 Points: ${user.points || 0}
 About: ${user.about || 'None'}
-`;
+`.trim();
 
-    const systemPrompt = 'You are an AI Academic and Career Copilot. Analyze the student profile and output a JSON object only. Format: { "profileScore": 85, "suggestions": ["add about page", "add project experience"], "skillsToLearn": ["Docker", "TypeScript"], "targetRoles": ["Frontend Developer", "React Architect"], "badgesToTarget": ["Group Leader badge", "Hackathon Champ"], "roadmap": { "shortTerm": "Learn styling libraries and build portfolio", "longTerm": "Master Cloud deployments and Node architectures" } }';
+export const getCareerRecommendations = asyncHandler(async (req, res, next) => {
+  if (!AiService.isAvailable) {
+    return next(new AppError('AI Career Copilot service is currently misconfigured. Gemini API key missing.', 500));
+  }
 
-    const response = await ai.models.generateContent({
-      model: env.geminiModel || 'gemini-2.5-flash',
-      contents: `Analyze this student profile and generate the career insights: \n${userProfileText}`,
-      config: {
-        systemInstruction: systemPrompt,
-        responseMimeType: "application/json"
-      }
-    });
+  const user = await User.findById(req.user._id);
+  if (!user) return next(new AppError('User not found', 404));
 
-    const result = JSON.parse(response.text);
-    res.json({ success: true, ...result });
+  const systemPrompt =
+    'You are an AI Academic and Career Copilot. Analyze the student profile and output a JSON object only. ' +
+    'Format: { "profileScore": 85, "suggestions": ["add about page", "add project experience"], ' +
+    '"skillsToLearn": ["Docker", "TypeScript"], "targetRoles": ["Frontend Developer", "React Architect"], ' +
+    '"badgesToTarget": ["Group Leader badge", "Hackathon Champ"], ' +
+    '"roadmap": { "shortTerm": "Learn styling libraries and build portfolio", "longTerm": "Master Cloud deployments and Node architectures" } }';
+
+  const text = await AiService.generateContent({
+    contents:         `Analyze this student profile and generate the career insights:\n${buildProfileText(user)}`,
+    systemInstruction: systemPrompt,
+    responseMimeType:  'application/json',
+  });
+
+  const result = JSON.parse(text);
+  res.json({ success: true, ...result });
 });
 
 export const handleCareerChat = asyncHandler(async (req, res, next) => {
-  if (!ai) {
+  if (!AiService.isAvailable) {
     return next(new AppError('AI Career Copilot service is currently misconfigured. Gemini API key missing.', 500));
   }
 
@@ -56,7 +65,7 @@ export const handleCareerChat = asyncHandler(async (req, res, next) => {
   const user = await User.findById(req.user._id);
   if (!user) return next(new AppError('User not found', 404));
 
-    const systemPrompt = `You are the UniConnect AI Career and Academic Copilot. Your role is to guide students on their educational and professional paths.
+  const systemPrompt = `You are the ProConnect AI Career and Academic Copilot. Your role is to guide students on their educational and professional paths.
 You have access to the student's profile context. Tailor all advice to their profile details.
 
 Student Profile:
@@ -73,16 +82,12 @@ Student Profile:
 RULES:
 1. Provide highly conversational, encouraging, and clear guidance.
 2. Keep spoken/audio responses concise. Try to answer in 2-4 sentences max so it reads aloud nicely, but provide detailed bullet points if appropriate for longer roadmap descriptions.
-3. Reference their profile details directly in your response where relevant.
-`;
+3. Reference their profile details directly in your response where relevant.`;
 
-    const response = await ai.models.generateContent({
-      model: env.geminiModel || 'gemini-2.5-flash',
-      contents: query,
-      config: {
-        systemInstruction: systemPrompt
-      }
-    });
+  const text = await AiService.generateContent({
+    contents:          query,
+    systemInstruction: systemPrompt,
+  });
 
-    res.json({ success: true, text: response.text });
+  res.json({ success: true, text });
 });

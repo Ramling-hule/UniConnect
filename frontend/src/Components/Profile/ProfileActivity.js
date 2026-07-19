@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { MoreVertical, Edit2, Trash2, MessageSquare, Heart } from 'lucide-react';
 import Link from 'next/link';
-import axios from 'axios';
-import { API_BASE_URL } from '@/utils/config';
+import apiClient from '@/services/apiClient';
+import toast from 'react-hot-toast';
+import { extractErrorMessage } from '@/utils/errorHelper';
 
 export default function ProfileActivity({ posts, isOwnProfile, onDeletePost, currentUser }) {
   const [loadingId, setLoadingId] = useState(null);
@@ -12,14 +13,13 @@ export default function ProfileActivity({ posts, isOwnProfile, onDeletePost, cur
     
     setLoadingId(postId);
     try {
-        const token = currentUser?.token || localStorage.getItem('token');
-        await axios.delete(`${API_BASE_URL}/api/posts/${postId}`, {
-            headers: { Authorization: `Bearer ${token}` }
-        });
+        await apiClient.delete(`/api/posts/${postId}`);
         onDeletePost(postId);
+        toast.success("Post deleted successfully");
     } catch (error) {
-        console.error("Failed to delete post", error);
-        alert("Failed to delete post");
+        const msg = extractErrorMessage(error, "Failed to delete post");
+        console.error("Failed to delete post", msg);
+        toast.error(msg);
     } finally {
         setLoadingId(null);
     }

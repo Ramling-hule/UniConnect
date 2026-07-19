@@ -1,8 +1,8 @@
-# 🎓 UniConnect
+# 🎓 ProConnect
 
 ![Node.js](https://img.shields.io/badge/Node.js-green?style=flat&logo=node.js) ![Express](https://img.shields.io/badge/Express-blue?style=flat&logo=express) ![MongoDB](https://img.shields.io/badge/MongoDB-green?style=flat&logo=mongodb) ![Redis](https://img.shields.io/badge/Redis-red?style=flat&logo=redis) ![Socket.io](https://img.shields.io/badge/Socket.io-black?style=flat&logo=socket.io)
 
-**UniConnect** is a robust social networking platform designed for university students and professionals. It facilitates connections, community building via groups, and real-time interaction through posts and messaging.
+**ProConnect** is a robust social networking platform designed for university students and professionals. It facilitates connections, community building via groups, and real-time interaction through posts and messaging.
 
 The backend is engineered for performance, utilizing **Redis caching** for high-traffic endpoints and **Socket.io** for instant notifications.
 
@@ -49,5 +49,5 @@ The backend is engineered for performance, utilizing **Redis caching** for high-
 
 ### 1. Clone the Repository
 ```bash
-git clone [https://github.com/Ramling-hule/UniConect.git](https://github.com/Ramling-hule/UniConect.git)
-cd UniConect
+git clone [https://github.com/Ramling-hule/ProConnect.git](https://github.com/Ramling-hule/ProConnect.git)
+cd ProConnect

@@ -1,32 +1,229 @@
 "use client";
-import React, { useEffect, useState } from 'react';
-import { useSelector } from 'react-redux';
-import { 
-  Heart, MessageCircle, Share2, MoreHorizontal, Bookmark, Send 
-} from 'lucide-react';
-import { API_BASE_URL } from '@/utils/config';
+import React, { useEffect, useState, useRef, useCallback } from "react";
+import { useSelector } from "react-redux";
+import { Heart, MessageCircle, Share2, MoreHorizontal, Send, FileText, File, Download, ExternalLink } from "lucide-react";
+import { API_BASE_URL } from "@/utils/config";
 
-// --- SUB-COMPONENT: INDIVIDUAL POST CARD ---
+/* ─────────────────────────────────────────────────────────
+   MediaRenderer — renders the right element for each media type
+───────────────────────────────────────────────────────── */
+function MediaRenderer({ post, isDark }) {
+  const bgMuted = isDark ? "rgba(0,0,0,0.3)" : "#F0F4FF";
+
+  // Backward compat: old posts have post.image, new posts have post.media
+  const legacyImage = post.image && !post.media;
+  if (legacyImage) {
+    return (
+      <div className="w-full overflow-hidden" style={{ background: bgMuted }}>
+        <img
+          src={post.image}
+          alt="Post media"
+          className="w-full h-auto max-h-[500px] object-contain"
+          loading="lazy"
+        />
+      </div>
+    );
+  }
+
+  const media = post.media;
+  if (!media?.url) return null;
+
+  const { url, resourceType, format, originalFilename } = media;
+
+  /* Image */
+  if (resourceType === "image") {
+    return (
+      <div className="w-full overflow-hidden" style={{ background: bgMuted }}>
+        <img
+          src={url}
+          alt={originalFilename || "Post image"}
+          className="w-full h-auto max-h-[500px] object-contain"
+          loading="lazy"
+        />
+      </div>
+    );
+  }
+
+  /* Video */
+  if (resourceType === "video") {
+    return (
+      <div className="w-full overflow-hidden rounded-b-none" style={{ background: "#000" }}>
+        <video
+          src={url}
+          controls
+          preload="metadata"
+          className="w-full max-h-[500px]"
+          style={{ display: "block" }}
+        />
+      </div>
+    );
+  }
+
+  /* PDF */
+  if (resourceType === "raw" && format === "pdf") {
+    return (
+      <div
+        className="mx-5 my-3 rounded-xl overflow-hidden"
+        style={{
+          border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+        }}
+      >
+        <iframe
+          src={`${url}#toolbar=0&navpanes=0`}
+          title={originalFilename || "PDF"}
+          className="w-full"
+          style={{ height: 380, border: "none" }}
+        />
+        <div
+          className="flex items-center justify-between px-4 py-2.5"
+          style={{
+            borderTop: `1px solid ${isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}`,
+            background: isDark ? "#0D1526" : "#F8FAFF",
+          }}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <FileText size={16} style={{ color: "#F97316", flexShrink: 0 }} />
+            <span
+              className="text-xs font-semibold truncate"
+              style={{ color: isDark ? "#E8EFF8" : "#0F172A" }}
+            >
+              {originalFilename || "document.pdf"}
+            </span>
+          </div>
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            download={originalFilename}
+            className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg transition-all hover:scale-105 flex-shrink-0 ml-3"
+            style={{ color: "#F97316", background: "rgba(249,115,22,0.1)" }}
+          >
+            <Download size={13} />
+            Download
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  /* Text file */
+  if (resourceType === "raw" && (format === "txt" || format === "md" || format === "text")) {
+    return (
+      <TextFilePreview url={url} filename={originalFilename} isDark={isDark} />
+    );
+  }
+
+  /* Generic raw file (fallback) */
+  return (
+    <div
+      className="mx-5 my-3 flex items-center gap-3 p-4 rounded-xl"
+      style={{
+        background: isDark ? "#0D1526" : "#F8FAFF",
+        border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+      }}
+    >
+      <File size={24} style={{ color: "#A78BFA" }} />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-semibold truncate" style={{ color: isDark ? "#E8EFF8" : "#0F172A" }}>
+          {originalFilename || "Attachment"}
+        </p>
+      </div>
+      <a
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-1 text-xs font-semibold px-3 py-1.5 rounded-lg"
+        style={{ color: "#4F8EF7", background: "rgba(79,142,247,0.1)" }}
+      >
+        <ExternalLink size={13} />
+        Open
+      </a>
+    </div>
+  );
+}
+
+function TextFilePreview({ url, filename, isDark }) {
+  const [content, setContent] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(url)
+      .then((r) => r.text())
+      .then((t) => setContent(t))
+      .catch(() => setContent("(Could not load file preview)"))
+      .finally(() => setLoading(false));
+  }, [url]);
+
+  return (
+    <div
+      className="mx-5 my-3 rounded-xl overflow-hidden"
+      style={{
+        border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+        background: isDark ? "#0D1526" : "#F8FAFF",
+      }}
+    >
+      <div
+        className="flex items-center justify-between px-4 py-2.5"
+        style={{ borderBottom: `1px solid ${isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)"}` }}
+      >
+        <div className="flex items-center gap-2">
+          <File size={15} style={{ color: "#A78BFA" }} />
+          <span className="text-xs font-semibold" style={{ color: isDark ? "#E8EFF8" : "#0F172A" }}>
+            {filename || "text file"}
+          </span>
+        </div>
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          download={filename}
+          className="flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg"
+          style={{ color: "#A78BFA", background: "rgba(167,139,250,0.1)" }}
+        >
+          <Download size={12} />
+          Download
+        </a>
+      </div>
+      <pre
+        className="text-xs font-mono whitespace-pre-wrap p-4 max-h-48 overflow-auto"
+        style={{ color: isDark ? "#B0BFDA" : "#334155" }}
+      >
+        {loading ? "Loading…" : (content?.slice(0, 1000) || "")}
+        {!loading && content?.length > 1000 ? "\n… (truncated)" : ""}
+      </pre>
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   Individual Post Card
+───────────────────────────────────────────────────────── */
 const PostCard = ({ post, user, isDark }) => {
-  // Local State for interactions
   const [likes, setLikes] = useState(post.likes || []);
   const [comments, setComments] = useState(post.comments || []);
-  const [showCommentInput, setShowCommentInput] = useState(false);
+  const [showComments, setShowComments] = useState(false);
   const [commentText, setCommentText] = useState("");
   const [isShareClicked, setIsShareClicked] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const currentUserId = user?.id || user?._id;
   const isLiked = likes.some((id) => id?.toString() === currentUserId?.toString());
 
-  // 1. Handle Like Toggle
+  /* ── colour tokens ── */
+  const surface  = isDark ? "#0D1526" : "#FFFFFF";
+  const border   = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
+  const textPrimary   = isDark ? "#E8EFF8" : "#0F172A";
+  const textSecondary = isDark ? "#6B7FA3" : "#64748B";
+  const divider       = isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.06)";
+  const hoverBtn      = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)";
+  const commentBg     = isDark ? "#060B18" : "#F8FAFF";
+
   const handleLike = async () => {
-    // Optimistic Update (Update UI immediately)
     if (isLiked) {
-      setLikes(likes.filter(id => id?.toString() !== currentUserId?.toString()));
+      setLikes(likes.filter((id) => id?.toString() !== currentUserId?.toString()));
     } else {
       setLikes([...likes, currentUserId]);
     }
-
     try {
       await fetch(`${API_BASE_URL}/api/dashboard/posts/${post._id}/like`, {
         method: "PUT",
@@ -35,213 +232,411 @@ const PostCard = ({ post, user, isDark }) => {
       });
     } catch (err) {
       console.error("Like failed", err);
-      // Revert on failure (optional)
     }
   };
 
-  // 2. Handle Add Comment
   const handleCommentSubmit = async (e) => {
     e.preventDefault();
     if (!commentText.trim()) return;
-
     try {
-      const res = await fetch(`${API_BASE_URL}/api/dashboard/posts/${post._id}/comment`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: currentUserId, text: commentText }),
-      });
+      const res = await fetch(
+        `${API_BASE_URL}/api/dashboard/posts/${post._id}/comment`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: currentUserId, text: commentText }),
+        }
+      );
       const updatedComments = await res.json();
       setComments(updatedComments);
-      setCommentText(""); // Clear input
+      setCommentText("");
     } catch (err) {
       console.error("Comment failed", err);
     }
   };
 
-  // 3. Handle Share (Visual Only)
   const handleShare = () => {
     setIsShareClicked(true);
-    navigator.clipboard.writeText(`Check out this post on UniConnect!`);
-    setTimeout(() => setIsShareClicked(false), 2000); // Reset after 2s
+    navigator.clipboard.writeText("Check out this post on ProConnect!");
+    setTimeout(() => setIsShareClicked(false), 2000);
   };
 
+  const initials = (name) => name?.[0]?.toUpperCase() || "U";
+
   return (
-    <div className={`rounded-2xl border shadow-sm transition-all duration-300 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
-      
-      {/* HEADER */}
+    <article
+      className="rounded-2xl overflow-hidden transition-all duration-200 animate-fade-up"
+      style={{
+        background: surface,
+        border: `1px solid ${border}`,
+        boxShadow: isDark
+          ? "0 1px 3px rgba(0,0,0,0.5), 0 4px 20px rgba(0,0,0,0.3)"
+          : "0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04)",
+      }}
+    >
+      {/* ── HEADER ── */}
       <div className="p-5 flex justify-between items-start">
         <div className="flex items-center gap-3">
-           <div className="w-10 h-10 rounded-full bg-linear-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-md">
-              {post.user?.name?.[0] || "U"}
-           </div>
-           <div>
-             <h4 className={`font-bold text-sm leading-none mb-1 ${isDark ? 'text-slate-100' : 'text-slate-900'}`}>
-                {post.user?.name || "Unknown User"}
-             </h4>
-             <p className="text-xs text-slate-500 font-medium">
-                {post.user?.institute || "Institute"} • {new Date(post.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-             </p>
-           </div>
+          {/* Avatar */}
+          <div
+            className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-md flex-shrink-0"
+            style={{ background: "linear-gradient(135deg, #4F8EF7, #818CF8)" }}
+          >
+            {initials(post.user?.name)}
+          </div>
+          <div>
+            <h4 className="font-bold text-sm leading-tight" style={{ color: textPrimary }}>
+              {post.user?.name || "Unknown User"}
+            </h4>
+            <p className="text-xs mt-0.5" style={{ color: textSecondary }}>
+              {post.user?.institute || "Institute"} ·{" "}
+              {new Date(post.createdAt).toLocaleDateString(undefined, {
+                month: "short",
+                day: "numeric",
+              })}
+            </p>
+          </div>
         </div>
-        <button className={`p-2 rounded-full ${isDark ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-400 hover:bg-slate-50'}`}>
-          <MoreHorizontal size={20} />
+
+        <div className="relative">
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="p-1.5 rounded-lg transition-colors"
+            style={{ color: textSecondary }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = hoverBtn)}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+          >
+            <MoreHorizontal size={18} />
+          </button>
+        </div>
+      </div>
+
+      {/* ── BODY TEXT ── */}
+      {post.text && (
+        <div
+          className="px-5 pb-4 text-sm leading-7 whitespace-pre-wrap"
+          style={{ color: isDark ? "#B0BFDA" : "#334155" }}
+        >
+          {post.text}
+        </div>
+      )}
+
+
+      {/* ── MEDIA ── */}
+      <MediaRenderer post={post} isDark={isDark} />
+
+
+      {/* ── STATS ── */}
+      <div
+        className="px-5 py-2.5 flex justify-between text-xs font-medium"
+        style={{ borderTop: `1px solid ${divider}`, color: textSecondary }}
+      >
+        <span>{likes.length > 0 ? `${likes.length} like${likes.length > 1 ? "s" : ""}` : "Be the first to like"}</span>
+        <button
+          onClick={() => setShowComments(!showComments)}
+          className="transition-colors"
+          style={{ color: textSecondary }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = "#4F8EF7")}
+          onMouseLeave={(e) => (e.currentTarget.style.color = textSecondary)}
+        >
+          {comments.length} comment{comments.length !== 1 ? "s" : ""}
         </button>
       </div>
-      
-      {/* TEXT BODY */}
-      {post.text && (
-        <div className={`px-5 pb-3 text-sm leading-7 whitespace-pre-wrap ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
-            {post.text}
-        </div>
-      )}
-      
-      {/* IMAGE MEDIA */}
-      {post.image && (
-         <div className={`mt-2 w-full flex items-center justify-center overflow-hidden ${isDark ? 'bg-black/40' : 'bg-slate-50'}`}>
-           <img src={post.image} alt="Post media" className="w-full h-auto max-h-125 object-contain" loading="lazy" />
-         </div>
-      )}
-      
-      {/* STATS ROW (Likes/Comments Count) */}
-      <div className={`px-5 py-3 flex justify-between text-xs font-medium border-t ${isDark ? 'border-slate-800 text-slate-400' : 'border-slate-50 text-slate-500'}`}>
-         <span>{likes.length > 0 ? `${likes.length} Likes` : 'Be the first to like'}</span>
-         
-         {/* 👇 UPDATED: Added onClick to toggle comments */}
-         <span 
-            onClick={() => setShowCommentInput(!showCommentInput)}
-            className="cursor-pointer hover:text-blue-500 hover:underline transition-colors"
-         >
-            {comments.length} Comments
-         </span>
+
+      {/* ── ACTION BUTTONS ── */}
+      <div
+        className="px-3 py-2 grid grid-cols-3 gap-1"
+        style={{ borderTop: `1px solid ${divider}` }}
+      >
+        {/* Like */}
+        <button
+          onClick={handleLike}
+          className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all"
+          style={{
+            color: isLiked ? "#F87171" : textSecondary,
+            background: isLiked
+              ? "rgba(248,113,113,0.1)"
+              : "transparent",
+          }}
+          onMouseEnter={(e) => {
+            if (!isLiked) e.currentTarget.style.background = hoverBtn;
+          }}
+          onMouseLeave={(e) => {
+            if (!isLiked) e.currentTarget.style.background = "transparent";
+          }}
+        >
+          <Heart size={16} className={isLiked ? "fill-current" : ""} />
+          <span>Like</span>
+        </button>
+
+        {/* Comment */}
+        <button
+          onClick={() => setShowComments(!showComments)}
+          className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all"
+          style={{ color: textSecondary }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = hoverBtn)}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+        >
+          <MessageCircle size={16} />
+          <span>Comment</span>
+        </button>
+
+        {/* Share */}
+        <button
+          onClick={handleShare}
+          className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all"
+          style={{
+            color: isShareClicked ? "#34D399" : textSecondary,
+            background: isShareClicked ? "rgba(52,211,153,0.08)" : "transparent",
+          }}
+          onMouseEnter={(e) => {
+            if (!isShareClicked) e.currentTarget.style.background = hoverBtn;
+          }}
+          onMouseLeave={(e) => {
+            if (!isShareClicked) e.currentTarget.style.background = "transparent";
+          }}
+        >
+          <Share2 size={16} />
+          <span>{isShareClicked ? "Copied!" : "Share"}</span>
+        </button>
       </div>
 
-      {/* ACTION BUTTONS */}
-      <div className={`px-2 py-2 flex items-center justify-between border-t ${isDark ? 'border-slate-800' : 'border-slate-50'}`}>
-         
-         {/* LIKE BUTTON */}
-         <button 
-           onClick={handleLike}
-           className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-             isLiked 
-               ? 'text-red-500 bg-red-50 dark:bg-red-900/10' 
-               : isDark ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-50'
-           }`}
-         >
-           <Heart size={18} className={isLiked ? "fill-current" : ""} />
-           <span>Like</span>
-         </button>
-
-         {/* COMMENT BUTTON */}
-         <button 
-           onClick={() => setShowCommentInput(!showCommentInput)}
-           className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${isDark ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-50'}`}
-         >
-           <MessageCircle size={18} />
-           <span>Comment</span>
-         </button>
-
-         {/* SHARE BUTTON */}
-         <button 
-           onClick={handleShare}
-           className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-semibold transition-all ${
-              isShareClicked ? 'text-green-600 bg-green-50' : isDark ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-50'
-           }`}
-         >
-           <Share2 size={18} />
-           <span>{isShareClicked ? "Copied!" : "Share"}</span>
-         </button>
-      </div>
-
-      {/* COMMENT SECTION (Toggleable) */}
-      {showCommentInput && (
-        <div className={`p-4 border-t animate-fade-up ${isDark ? 'border-slate-800 bg-slate-800/50' : 'border-slate-50 bg-slate-50'}`}>
-           
-           {/* Existing Comments List */}
-           {comments.length > 0 && (
-             <div className="space-y-3 mb-4 max-h-40 overflow-y-auto custom-scrollbar">
-                {comments.map((c, i) => (
-                  <div key={i} className="flex gap-2">
-                      <div className="w-6 h-6 rounded-full bg-brand-primary text-white text-xs flex items-center justify-center font-bold">
-                         {c.user?.name?.[0] || "?"}
-                      </div>
-                      <div className={`flex-1 p-2 rounded-lg text-xs ${isDark ? 'bg-slate-800' : 'bg-white border border-slate-200'}`}>
-                         <span className={`font-bold block ${isDark ? 'text-white' : 'text-slate-900'}`}>{c.user?.name || "User"}</span>
-                         <span className={isDark ? 'text-slate-300' : 'text-slate-600'}>{c.text}</span>
-                      </div>
+      {/* ── COMMENTS SECTION ── */}
+      {showComments && (
+        <div
+          className="p-4"
+          style={{ borderTop: `1px solid ${divider}`, background: commentBg }}
+        >
+          {/* Existing comments */}
+          {comments.length > 0 && (
+            <div className="space-y-3 mb-4 max-h-48 overflow-y-auto custom-scrollbar">
+              {comments.map((c, i) => (
+                <div key={i} className="flex gap-3">
+                  <div
+                    className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                    style={{ background: "linear-gradient(135deg,#4F8EF7,#818CF8)" }}
+                  >
+                    {initials(c.user?.name)}
                   </div>
-                ))}
-             </div>
-           )}
+                  <div
+                    className="flex-1 px-3 py-2 rounded-xl text-xs"
+                    style={{
+                      background: isDark ? "#141F35" : "#FFFFFF",
+                      border: `1px solid ${border}`,
+                    }}
+                  >
+                    <span className="font-bold block mb-0.5" style={{ color: textPrimary }}>
+                      {c.user?.name || "User"}
+                    </span>
+                    <span style={{ color: isDark ? "#B0BFDA" : "#475569" }}>{c.text}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
-           {/* Input Field */}
-           <form onSubmit={handleCommentSubmit} className="flex gap-2">
-              <input 
-                type="text" 
-                placeholder="Add a comment..." 
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                className={`flex-1 px-3 py-2 rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-primary/50 ${isDark ? 'bg-slate-900 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-200 border'}`}
-              />
-              <button 
-                type="submit" 
-                disabled={!commentText.trim()}
-                className="bg-brand-primary text-white p-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-              >
-                <Send size={16} />
-              </button>
-           </form>
+          {/* Input */}
+          <form onSubmit={handleCommentSubmit} className="flex gap-2">
+            <input
+              type="text"
+              placeholder="Write a comment..."
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              className="flex-1 px-4 py-2.5 rounded-xl text-sm transition-all"
+              style={{
+                background: isDark ? "#0D1526" : "#FFFFFF",
+                border: `1px solid ${border}`,
+                color: textPrimary,
+                outline: "none",
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = "rgba(79,142,247,0.5)";
+                e.currentTarget.style.boxShadow = "0 0 0 3px rgba(79,142,247,0.1)";
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = border;
+                e.currentTarget.style.boxShadow = "none";
+              }}
+            />
+            <button
+              type="submit"
+              disabled={!commentText.trim()}
+              className="w-10 h-10 rounded-xl flex items-center justify-center text-white transition-all hover:scale-105 disabled:opacity-30 disabled:cursor-not-allowed"
+              style={{ background: "linear-gradient(135deg,#4F8EF7,#818CF8)" }}
+            >
+              <Send size={15} />
+            </button>
+          </form>
         </div>
       )}
-
-    </div>
+    </article>
   );
 };
 
-// --- MAIN FEED CONTAINER ---
+/* ─────────────────────────────────────────────────────────
+   Feed Container
+───────────────────────────────────────────────────────── */
 export default function Feed({ newPostTrigger }) {
   const { user } = useSelector((state) => state.auth);
   const { isDark } = useSelector((state) => state.theme);
+  
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [nextCursor, setNextCursor] = useState(null);
+  const [error, setError] = useState(null);
 
-  // Fetch Posts
+  const observer = useRef();
+  
+  const fetchPosts = async (cursor = null, isRetry = false) => {
+    if (!cursor) setLoading(true);
+    else setLoadingMore(true);
+    setError(null);
+
+    try {
+      const url = new URL(`${API_BASE_URL}/api/dashboard/posts`);
+      url.searchParams.append("limit", "10");
+      if (cursor) url.searchParams.append("cursor", cursor);
+
+      const res = await fetch(url.toString());
+      if (!res.ok) throw new Error("Failed to fetch posts");
+      
+      const data = await res.json();
+      
+      setPosts(prev => {
+        if (!cursor) return data.posts || [];
+        // Prevent duplicates when appending
+        const newPosts = (data.posts || []).filter(
+          newPost => !prev.some(p => p._id === newPost._id)
+        );
+        return [...prev, ...newPosts];
+      });
+      
+      setNextCursor(data.nextCursor);
+      setHasMore(data.hasMore);
+    } catch (err) {
+      console.error("Fetch posts error:", err);
+      setError("Unable to load posts. Please try again.");
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchPosts = async () => {
-      try {
-        const res = await fetch(`${API_BASE_URL}/api/dashboard/posts`);
-        if (!res.ok) {
-          console.error(`API error: ${res.status}`);
-          setPosts([]);
-          setLoading(false);
-          return;
-        }
-        const data = await res.json();
-        // Ensure data is an array, fallback to empty array if not
-        setPosts(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error("Fetch posts error:", err);
-        setPosts([]);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchPosts();
   }, []);
 
-  // Update when new post is created
   useEffect(() => {
-    if (newPostTrigger) setPosts((prev) => [newPostTrigger, ...prev]);
+    if (newPostTrigger) {
+      setPosts((prev) => {
+        if (prev.some(p => p._id === newPostTrigger._id)) return prev;
+        return [newPostTrigger, ...prev];
+      });
+    }
   }, [newPostTrigger]);
 
-  if (loading) return (
-    <div className={`text-center py-10 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>Loading feed...</div>
-  );
+  const lastPostElementRef = useCallback(node => {
+    if (loading || loadingMore) return;
+    if (observer.current) observer.current.disconnect();
+    
+    observer.current = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting && hasMore && !error) {
+        fetchPosts(nextCursor);
+      }
+    });
+    
+    if (node) observer.current.observe(node);
+  }, [loading, loadingMore, hasMore, nextCursor, error]);
+
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        {[1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="rounded-2xl p-5 animate-pulse"
+            style={{
+              background: isDark ? "#0D1526" : "#FFFFFF",
+              border: `1px solid ${isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)"}`,
+            }}
+          >
+            <div className="flex gap-3 mb-4">
+              <div
+                className="w-10 h-10 rounded-xl flex-shrink-0"
+                style={{ background: isDark ? "#141F35" : "#E2E8F0" }}
+              />
+              <div className="flex-1 space-y-2">
+                <div className="h-3 rounded-lg w-32" style={{ background: isDark ? "#141F35" : "#E2E8F0" }} />
+                <div className="h-2.5 rounded-lg w-20" style={{ background: isDark ? "#141F35" : "#E2E8F0" }} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <div className="h-3 rounded-lg" style={{ background: isDark ? "#141F35" : "#E2E8F0" }} />
+              <div className="h-3 rounded-lg w-3/4" style={{ background: isDark ? "#141F35" : "#E2E8F0" }} />
+              <div className="h-3 rounded-lg w-1/2" style={{ background: isDark ? "#141F35" : "#E2E8F0" }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (posts.length === 0 && !error) {
+    return (
+      <div
+        className="rounded-2xl p-12 text-center"
+        style={{
+          background: isDark ? "#0D1526" : "#FFFFFF",
+          border: `1px dashed ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)"}`,
+        }}
+      >
+        <p className="text-sm font-medium" style={{ color: isDark ? "#6B7FA3" : "#94A3B8" }}>
+          No posts yet. Be the first to share something!
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
-      {posts.map((post) => (
-        <PostCard key={post._id} post={post} user={user} isDark={isDark} />
-      ))}
+    <div className="space-y-4 pb-10">
+      {posts.map((post, index) => {
+        const isLast = index === posts.length - 1;
+        return (
+          <div key={post._id} ref={isLast ? lastPostElementRef : null}>
+            <PostCard post={post} user={user} isDark={isDark} />
+          </div>
+        );
+      })}
+
+      {loadingMore && (
+        <div className="flex justify-center py-4">
+          <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" 
+               style={{ borderColor: "rgba(79,142,247,0.3)", borderTopColor: "#4F8EF7" }} />
+        </div>
+      )}
+
+      {error && (
+        <div className="flex flex-col items-center justify-center py-6 text-center space-y-3">
+          <p className="text-sm" style={{ color: "#EF4444" }}>{error}</p>
+          <button 
+            onClick={() => fetchPosts(nextCursor, true)}
+            className="px-4 py-1.5 rounded-lg text-xs font-semibold text-white transition-all hover:scale-105"
+            style={{ background: "linear-gradient(135deg,#4F8EF7,#818CF8)" }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+      
+      {!hasMore && posts.length > 0 && !error && (
+        <div className="py-6 text-center">
+          <p className="text-xs font-medium" style={{ color: isDark ? "#6B7FA3" : "#94A3B8" }}>
+            You've reached the end of your feed.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

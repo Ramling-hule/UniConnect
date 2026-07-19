@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import { env } from "../config/env.js";
+import logger from "../utils/logger.js";
 
 class EmailService {
   constructor() {
@@ -10,38 +11,87 @@ class EmailService {
         pass: env.emailPass,
       },
     });
+
+    // Verify SMTP connection on startup so misconfigured credentials
+    // are caught immediately rather than at the moment a user registers.
+    this.transporter.verify((error) => {
+      if (error) {
+        logger.error("EmailService: SMTP connection failed — emails will NOT send", {
+          smtpError  : error.message,
+          smtpCode   : error.code,       // e.g. EAUTH, ECONNECTION
+          smtpCommand: error.command,    // e.g. AUTH
+          emailUser  : env.emailUser,
+          hint       : "Make sure EMAIL_PASS is a Gmail App Password (not your account password). Generate one at: https://myaccount.google.com/apppasswords",
+        });
+      } else {
+        logger.info("EmailService: SMTP connection verified ✓", { emailUser: env.emailUser });
+      }
+    });
   }
 
   async sendEmail({ to, subject, text, html }) {
     try {
-      await this.transporter.sendMail({
-        from: env.emailUser,
+      const info = await this.transporter.sendMail({
+        from: `"ProConnect" <${env.emailUser}>`,
         to,
         subject,
         text,
         html,
       });
+      logger.info("Email sent", { to, subject, messageId: info.messageId });
     } catch (error) {
-      console.error("Failed to send email:", error.message);
-      throw new Error("Email sending failed");
+      // Log the REAL nodemailer error — not just the generic message
+      logger.error("EmailService: Failed to send email", {
+        to,
+        subject,
+        smtpError  : error.message,
+        smtpCode   : error.code,       // e.g. EAUTH = bad credentials
+        smtpCommand: error.command,
+        responseCode: error.responseCode,
+        response   : error.response,   // Full SMTP server response
+      });
+
+      // Throw a clean AppError-compatible error that surfaces in the API response
+      const friendly = new Error("Email sending failed");
+      friendly.status = 503;
+      friendly.cause  = error; // Preserve original for deeper debugging
+      throw friendly;
     }
   }
 
   async sendOtpEmail(to, otp) {
     await this.sendEmail({
       to,
-      subject: "Your UniConnect Verification OTP",
-      text: `Your verification code is: ${otp}`,
-      html: `<b>Your verification code is: ${otp}</b>`,
+      subject: "Your ProConnect Verification OTP",
+      text: `Your verification code is: ${otp}. It expires in 10 minutes.`,
+      html: `
+        <div style="font-family:sans-serif;max-width:480px;margin:auto">
+          <h2 style="color:#4f46e5">ProConnect — Verify your email</h2>
+          <p>Use the code below to complete your registration:</p>
+          <div style="font-size:2rem;font-weight:bold;letter-spacing:8px;color:#4f46e5;padding:16px 0">
+            ${otp}
+          </div>
+          <p style="color:#666;font-size:0.875rem">This code expires in <strong>10 minutes</strong>. Do not share it.</p>
+        </div>
+      `,
     });
   }
 
   async sendPasswordResetEmail(to, resetUrl) {
     await this.sendEmail({
       to,
-      subject: "UniConnect Password Reset Request",
-      text: `Reset link: ${resetUrl}`,
-      html: `<a href="${resetUrl}">Reset Password</a>`,
+      subject: "ProConnect — Password Reset Request",
+      text: `Reset your password here: ${resetUrl}`,
+      html: `
+        <div style="font-family:sans-serif;max-width:480px;margin:auto">
+          <h2 style="color:#4f46e5">ProConnect — Reset your password</h2>
+          <p>Click the button below to set a new password. This link expires in 1 hour.</p>
+          <a href="${resetUrl}" style="display:inline-block;background:#4f46e5;color:#fff;padding:12px 24px;border-radius:6px;text-decoration:none;margin-top:8px">
+            Reset Password
+          </a>
+          <p style="color:#666;font-size:0.875rem;margin-top:16px">If you didn't request this, ignore this email.</p>
+        </div>
+      `,
     });
   }
 }

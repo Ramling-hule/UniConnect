@@ -1,12 +1,46 @@
 import multer from 'multer';
+import AppError from '../utils/AppError.js';
 
-// Store file in memory (RAM) temporarily
+// Whitelisted MIME types → mapped to Cloudinary resource_type
+const ALLOWED_TYPES = {
+  // Images
+  'image/jpeg':  { resource_type: 'image', maxBytes: 10 * 1024 * 1024 },
+  'image/jpg':   { resource_type: 'image', maxBytes: 10 * 1024 * 1024 },
+  'image/png':   { resource_type: 'image', maxBytes: 10 * 1024 * 1024 },
+  'image/gif':   { resource_type: 'image', maxBytes: 10 * 1024 * 1024 },
+  'image/webp':  { resource_type: 'image', maxBytes: 10 * 1024 * 1024 },
+  // Videos
+  'video/mp4':   { resource_type: 'video', maxBytes: 100 * 1024 * 1024 },
+  'video/webm':  { resource_type: 'video', maxBytes: 100 * 1024 * 1024 },
+  'video/quicktime': { resource_type: 'video', maxBytes: 100 * 1024 * 1024 },
+  // Documents
+  'application/pdf': { resource_type: 'raw', maxBytes: 25 * 1024 * 1024 },
+  // Text
+  'text/plain':  { resource_type: 'raw', maxBytes: 1 * 1024 * 1024 },
+  'text/markdown': { resource_type: 'raw', maxBytes: 1 * 1024 * 1024 },
+};
+
+export const getMimeInfo = (mimeType) => ALLOWED_TYPES[mimeType] || null;
+
+const fileFilter = (req, file, cb) => {
+  if (!ALLOWED_TYPES[file.mimetype]) {
+    return cb(new AppError(
+      `File type "${file.mimetype}" is not allowed. Supported: images (jpg/png/gif/webp), videos (mp4/webm/mov), PDFs, and text files.`,
+      400
+    ), false);
+  }
+  cb(null, true);
+};
+
 const storage = multer.memoryStorage();
 
-// Accept only images, max size 5MB
-const upload = multer({ 
+const upload = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 * 50 },
+  fileFilter,
+  limits: {
+    // Use the largest allowed size here; per-type enforcement happens in the controller
+    fileSize: 100 * 1024 * 1024, // 100 MB global max
+  },
 });
 
 export default upload;

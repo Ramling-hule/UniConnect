@@ -1,248 +1,293 @@
 "use client";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { toggleTheme } from "@/redux/features/themeSlice";
 import { setActiveTab } from "@/redux/features/navSlice";
-import { setNotifications, addNotification } from "@/redux/features/notificationSlice"; // Import notification actions
+import { setNotifications, addNotification } from "@/redux/features/notificationSlice";
+import { logout } from "@/redux/features/authSlice";
 import RightSidebar from "@/Components/RightSidebar";
 import ProtectedRoute from "@/Components/ProtectedRoute";
-import { Home, Search, Users, Trophy, Layers, Sun, Moon, BoxIcon, Sparkles } from "lucide-react";
+import CopilotPanel from "@/Components/CopilotPanel";
+import { Home, Search, Users, Trophy, Layers, Sun, Moon, Sparkles, Briefcase } from "lucide-react";
 import Link from "next/link";
 import ChatWindow from "@/Components/ChatWindow";
 import NotificationDropdown from "@/Components/NotificationDropdown";
-import io from "socket.io-client"; // Import Socket.io
+import ProfileDropdown from "@/Components/ProfileDropdown";
+import io from "socket.io-client";
 import { API_BASE_URL } from "@/utils/config";
-import { v4 as uuidv4 } from 'uuid'; // Import UUID for unique room IDs
 
-let socket; // Initialize outside component
+let socket;
 
 export default function DashboardLayout({ children }) {
   const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const { isDark } = useSelector((state) => state.theme);
   const { activeTab } = useSelector((state) => state.nav);
+  const [isCopilotOpen, setIsCopilotOpen] = useState(false);
 
   const navItems = [
-    { id: "home", label: "Home", icon: Home },
-    { id: "discover", label: "Discover", icon: Search },
-    { id: "connections", label: "Connections", icon: Users },
-    { id: "hackathons", label: "Hackathons", icon: Trophy },
-    { id: "copilot", label: "AI Copilot", icon: Sparkles, href: "/copilot" },
-    { id: "groups", label: "Groups", icon: Layers, href: "/groups" },
+    { id: "home",        label: "Home",        icon: Home, href: "/dashboard" },
+    { id: "discover",   label: "Discover",    icon: Search, href: "/dashboard" },
+    { id: "connections",label: "Connections", icon: Users, href: "/dashboard" },
+    { id: "hackathons", label: "Hackathons",  icon: Trophy, href: "/dashboard" },
+    { id: "groups",     label: "Groups",      icon: Layers, href: "/groups" },
+    { id: "mentors",    label: "Mentors",     icon: Briefcase, href: "/mentors" }, // Using Briefcase
   ];
 
-  // --- NOTIFICATION & SOCKET LOGIC ---
   useEffect(() => {
     if (user) {
-      // 1. Initialize Socket
       socket = io(API_BASE_URL);
+      socket.emit("setup_user", user.id || user._id);
 
-      // 2. Join User Room
-      socket.emit("setup_user", user.id || user._id); // Handle both id formats
-
-      // 3. Fetch Old Notifications
-      const token = user.token || localStorage.getItem('token');
+      const token = user.token || localStorage.getItem("token");
       fetch(`${API_BASE_URL}/api/notifications`, {
         headers: { Authorization: `Bearer ${token}` },
       })
         .then((res) => {
-            if(res.ok) return res.json();
-            throw new Error("Failed to fetch notifications");
+          if (res.ok) return res.json();
+          console.warn("Notifications fetch returned:", res.status);
+          return null;
         })
         .then((data) => {
-            if(Array.isArray(data)) dispatch(setNotifications(data));
+          if (data && Array.isArray(data)) dispatch(setNotifications(data));
         })
-        .catch(err => console.error("Notification fetch error:", err));
+        .catch((err) => console.error("Notification fetch error:", err));
 
-      // 4. Listen for Real-time Notifications
       socket.on("new_notification", (notif) => {
-        // Optional: Play sound here
-        // const audio = new Audio('/ping.mp3');
-        // audio.play().catch(e => console.log("Audio play failed", e));
-
         dispatch(addNotification(notif));
       });
 
-      // Cleanup on unmount
-      return () => {
-        if (socket) socket.disconnect();
-      };
+      return () => { if (socket) socket.disconnect(); };
     }
   }, [user, dispatch]);
+
+  /* ─────────────────────────────────────────────────────────
+     COLOUR TOKENS (derived from isDark)
+  ───────────────────────────────────────────────────────── */
+  const bg    = isDark ? "#060B18"  : "#F0F4FF";
+  const nav   = isDark ? "rgba(6,11,24,0.85)"  : "rgba(255,255,255,0.85)";
+  const sidebar = isDark ? "#0D1526" : "#FFFFFF";
+  const border  = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.08)";
+  const textPrimary   = isDark ? "#E8EFF8" : "#0F172A";
+  const textSecondary = isDark ? "#6B7FA3" : "#64748B";
+
+  const navItemBase =
+    "w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 mb-0.5";
+  const navItemActive =
+    "bg-brand-primary/10 text-brand-primary border border-brand-primary/20";
+  const navItemInactive = isDark
+    ? "text-[#6B7FA3] hover:bg-white/4 hover:text-[#E8EFF8]"
+    : "text-[#64748B] hover:bg-brand-primary/5 hover:text-[#0F172A]";
 
   return (
     <ProtectedRoute>
       <div
-        className={`min-h-screen ${isDark ? "bg-brand-dark text-slate-200" : "bg-brand-light text-slate-800"}`}
+        className="min-h-screen"
+        style={{ background: bg, color: textPrimary, fontFamily: "'Plus Jakarta Sans', sans-serif" }}
       >
-        {/* --- 1. TOP NAVBAR --- */}
+        {/* ── TOP NAVBAR ── */}
         <nav
-          className={`fixed top-0 left-0 right-0 h-16 border-b z-50 px-4 md:px-8 flex items-center justify-between transition-all duration-300
-            ${
-              isDark
-                ? "glass border-brand-dark-border"
-                : "glass border-brand-light-border"
-            }`}
+          className="fixed top-0 left-0 right-0 h-16 z-50 px-4 md:px-8 flex items-center justify-between"
+          style={{
+            background: nav,
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            borderBottom: `1px solid ${border}`,
+          }}
         >
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-brand-primary flex items-center justify-center text-white font-bold text-lg">
+          {/* Logo */}
+          <div className="flex items-center gap-2.5">
+            <div
+              className="w-8 h-8 rounded-xl flex items-center justify-center text-white font-bold text-base shadow-md"
+              style={{ background: "linear-gradient(135deg, #4F8EF7, #818CF8)" }}
+            >
               U
             </div>
-            <span
-              className={`text-xl font-bold hidden md:block ${
-                isDark ? "text-white" : "text-slate-900"
-              }`}
-            >
-              UniConnect
+            <span className="text-base font-bold tracking-tight hidden md:block" style={{ color: textPrimary }}>
+              ProConnect
             </span>
           </div>
 
-          <div className="flex items-center gap-4">
-            
-            {/* Notification Dropdown Component */}
+          {/* Right side */}
+          <div className="flex items-center gap-2">
+            {/* AI Copilot pill button — desktop */}
+            <button
+              onClick={() => setIsCopilotOpen(true)}
+              className="hidden md:flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all hover:scale-105 active:scale-95"
+              style={{
+                background: "linear-gradient(135deg, #4F8EF7, #818CF8)",
+                boxShadow: "0 4px 16px rgba(79,142,247,0.3)",
+              }}
+            >
+              <Sparkles size={14} />
+              AI Copilot
+            </button>
+
             <NotificationDropdown />
 
             <button
               onClick={() => dispatch(toggleTheme())}
-              className={`p-2 rounded-full ${
-                isDark
-                  ? "bg-slate-800 text-yellow-400"
-                  : "bg-slate-100 text-slate-600"
-              }`}
+              className="p-2 rounded-xl transition-all hover:scale-110"
+              style={{
+                background: isDark ? "rgba(255,255,255,0.06)" : "rgba(0,0,0,0.05)",
+                color: isDark ? "#FBBF24" : "#64748B",
+              }}
             >
-              {isDark ? <Sun size={20} /> : <Moon size={20} />}
+              {isDark ? <Sun size={18} /> : <Moon size={18} />}
             </button>
-            
-            <Link href={`/profile/${user?.username}`}>
-              <div className="w-9 h-9 rounded-full bg-brand-primary text-white flex items-center justify-center font-bold overflow-hidden border-2 border-transparent hover:border-brand-primary transition-all">
-                {user?.profilePicture ? (
-                    <img src={user.profilePicture} alt={user.name} className="w-full h-full object-cover"/>
-                ) : (
-                    user?.name?.[0]
-                )}
-              </div>
-            </Link>
-            <Link href={`/profile/${user?.username}`}>
-              <div className={`font-bold hover:underline cursor-pointer hidden sm:block ${isDark ? "text-white" : "text-slate-900"}`}>
-                {user?.name}
-              </div>
-            </Link>
+
+            <ProfileDropdown />
           </div>
         </nav>
 
+        {/* ── BODY ── */}
         <div className="pt-16 flex max-w-[1600px] mx-auto pb-16 md:pb-0">
-          {" "}
-          {/* Added pb-16 for mobile nav spacing */}
-          {/* --- 2. LEFT SIDEBAR (Desktop Only) --- */}
+
+          {/* ── LEFT SIDEBAR (desktop) ── */}
           <aside
-            className={`hidden md:block w-64 fixed h-[calc(100vh-64px)] overflow-y-auto border-r p-4 transition-all duration-300 custom-scrollbar
-              ${
-                isDark
-                  ? "bg-brand-dark/80 backdrop-blur-md border-brand-dark-border"
-                  : "bg-white/80 backdrop-blur-md border-brand-light-border"
-              }`}
+            className="hidden md:flex flex-col w-64 fixed h-[calc(100vh-64px)] overflow-y-auto p-4 custom-scrollbar"
+            style={{
+              background: sidebar,
+              borderRight: `1px solid ${border}`,
+              top: 64,
+            }}
           >
-            <div className="space-y-1">
+            {/* Section label */}
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-3 px-1" style={{ color: textSecondary }}>
+              Navigation
+            </p>
+
+            <nav className="space-y-0.5">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeTab === item.id;
-                const itemClass = `w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all mb-1 ${
-                  isActive
-                    ? "bg-brand-primary text-white shadow-md shadow-brand-primary/20"
-                    : isDark
-                    ? "text-slate-400 hover:bg-brand-dark-border hover:text-slate-200"
-                    : "text-slate-500 hover:bg-brand-light-border hover:text-slate-800"
-                }`;
-
+                const cls = `${navItemBase} ${isActive ? navItemActive : navItemInactive}`;
 
                 if (item.href) {
                   return (
-                    <Link
-                      key={item.id}
-                      href={item.href}
-                      className={itemClass}
-                      onClick={() => dispatch(setActiveTab(item.id))}
-                    >
-                      <Icon size={20} />
+                    <Link key={item.id} href={item.href} className={cls}
+                      onClick={() => dispatch(setActiveTab(item.id))}>
+                      <Icon size={18} />
                       {item.label}
                     </Link>
                   );
                 }
-
                 return (
-                  <button
-                    key={item.id}
-                    onClick={() => dispatch(setActiveTab(item.id))}
-                    className={itemClass}
-                  >
-                    <Icon size={20} />
+                  <button key={item.id} onClick={() => dispatch(setActiveTab(item.id))} className={cls}>
+                    <Icon size={18} />
                     {item.label}
                   </button>
                 );
               })}
-            </div>
+
+              {/* AI Copilot entry */}
+              <button
+                onClick={() => setIsCopilotOpen(true)}
+                className={`${navItemBase} mt-2`}
+                style={{
+                  background: isCopilotOpen
+                    ? "linear-gradient(135deg,rgba(79,142,247,0.18),rgba(129,140,248,0.12))"
+                    : isDark ? "rgba(79,142,247,0.07)" : "rgba(79,142,247,0.06)",
+                  color: isDark ? "#818CF8" : "#4F8EF7",
+                  border: `1px solid ${isDark ? "rgba(129,140,248,0.2)" : "rgba(79,142,247,0.15)"}`,
+                }}
+              >
+                <Sparkles size={18} />
+                AI Copilot
+              </button>
+            </nav>
+
+            {/* Bottom user card */}
+            {user && (
+              <div
+                className="mt-auto mx-0 p-3 rounded-2xl flex items-center gap-3"
+                style={{
+                  background: isDark ? "rgba(255,255,255,0.04)" : "rgba(79,142,247,0.05)",
+                  border: `1px solid ${border}`,
+                }}
+              >
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
+                  style={{ background: "linear-gradient(135deg,#4F8EF7,#818CF8)" }}
+                >
+                  {user.name?.[0] || "U"}
+                </div>
+                <div className="overflow-hidden">
+                  <p className="text-sm font-bold truncate" style={{ color: textPrimary }}>{user.name}</p>
+                  <p className="text-xs truncate" style={{ color: textSecondary }}>@{user.username}</p>
+                </div>
+              </div>
+            )}
           </aside>
-          {/* --- 3. CENTER CONTENT --- */}
-          <main className="flex-1 md:ml-64 xl:mr-80 p-4 md:p-8 min-h-[calc(100vh-64px)] max-w-4xl mx-auto w-full">
+
+          {/* ── CENTER CONTENT ── */}
+          <main className="flex-1 md:ml-64 xl:mr-80 p-4 md:p-6 min-h-[calc(100vh-64px)] max-w-3xl mx-auto w-full">
             {children}
           </main>
+
           <ChatWindow />
-          {/* --- 4. RIGHT SIDEBAR (Desktop Only) --- */}
           <RightSidebar />
         </div>
 
-        {/* --- 5. MOBILE BOTTOM NAVIGATION (Visible only on small screens) --- */}
+        {/* ── MOBILE BOTTOM NAV ── */}
         <div
-          className={`md:hidden fixed bottom-0 left-0 right-0 border-t z-50 px-6 py-2 flex justify-between items-center transition-all duration-300
-            ${
-              isDark
-                ? "glass border-brand-dark-border"
-                : "glass border-brand-light-border"
-            }`}
+          className="md:hidden fixed bottom-0 left-0 right-0 z-50 px-2 py-2 flex justify-around items-center"
+          style={{
+            background: nav,
+            backdropFilter: "blur(20px)",
+            WebkitBackdropFilter: "blur(20px)",
+            borderTop: `1px solid ${border}`,
+          }}
         >
           {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
-
-            // Wrapper for click logic
             const Content = (
-              <div className="flex flex-col items-center gap-1">
-                <Icon
-                  size={24}
-                  className={isActive ? "text-brand-primary" : "text-slate-500"}
-                />
-                <span
-                  className={`text-[10px] ${
-                    isActive ? "text-brand-primary font-bold" : "text-slate-500"
-                  }`}
-                >
+              <div className="flex flex-col items-center gap-1 px-2 py-1">
+                <Icon size={20} style={{ color: isActive ? "#4F8EF7" : textSecondary }} />
+                <span className="text-[10px] font-semibold" style={{ color: isActive ? "#4F8EF7" : textSecondary }}>
                   {item.label}
                 </span>
               </div>
             );
-
             if (item.href) {
               return (
-                <Link
-                  key={item.id}
-                  href={item.href}
-                  onClick={() => dispatch(setActiveTab(item.id))}
-                >
+                <Link key={item.id} href={item.href} onClick={() => dispatch(setActiveTab(item.id))}>
                   {Content}
                 </Link>
               );
             }
-
             return (
-              <button
-                key={item.id}
-                onClick={() => dispatch(setActiveTab(item.id))}
-              >
+              <button key={item.id} onClick={() => dispatch(setActiveTab(item.id))}>
                 {Content}
               </button>
             );
           })}
+
+          {/* Copilot in mobile nav */}
+          <button onClick={() => setIsCopilotOpen(true)} className="flex flex-col items-center gap-1 px-2 py-1">
+            <Sparkles size={20} style={{ color: isCopilotOpen ? "#818CF8" : textSecondary }} />
+            <span className="text-[10px] font-semibold" style={{ color: isCopilotOpen ? "#818CF8" : textSecondary }}>
+              Copilot
+            </span>
+          </button>
         </div>
+
+        {/* ── FLOATING FAB (desktop, bottom-right) ── */}
+        <button
+          onClick={() => setIsCopilotOpen(true)}
+          className={`fixed bottom-6 right-6 z-40 hidden md:flex items-center gap-2.5 rounded-2xl px-5 py-3.5 font-semibold text-sm text-white transition-all duration-200 hover:scale-105 active:scale-95 ${isCopilotOpen ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+          style={{
+            background: "linear-gradient(135deg, #4F8EF7, #818CF8)",
+            boxShadow: "0 8px 30px rgba(79,142,247,0.4), 0 2px 8px rgba(0,0,0,0.25)",
+          }}
+        >
+          <Sparkles size={16} />
+          Ask AI Copilot
+        </button>
+
+        {/* ── COPILOT PANEL ── */}
+        <CopilotPanel isOpen={isCopilotOpen} onClose={() => setIsCopilotOpen(false)} />
       </div>
     </ProtectedRoute>
   );

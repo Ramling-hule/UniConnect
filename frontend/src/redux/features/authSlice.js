@@ -1,20 +1,15 @@
 import { createSlice } from '@reduxjs/toolkit';
-
-// Helper to safely get data from localStorage
-const getFromStorage = (key) => {
-  if (typeof window !== 'undefined') {
-    const item = localStorage.getItem(key);
-    return item ? JSON.parse(item) : null;
-  }
-  return null;
-};
+import storageService from '../../services/storageService';
 
 const initialState = {
-  user: getFromStorage('userInfo'),
-  token: typeof window !== 'undefined' ? localStorage.getItem('token') : null,
+  user: storageService.getPersistedUser(),
+  token: storageService.getPersistedToken(),
   isLoading: false,
   error: null,
   success: false,
+  mfaRequired: false,
+  tempMfaToken: null,
+  tempUserId: null,
 };
 
 const authSlice = createSlice({
@@ -31,32 +26,39 @@ const authSlice = createSlice({
       state.success = true;
       state.error = null;
 
-      // --- CRITICAL CHANGE FOR YOUR API ---
-      // Your API returns: { _id, name, username, email, institute, token }
-      // Everything is at the top level of action.payload
-      const { token, _id, name, username, email, institute, profilePicture } = action.payload;
+      if (action.payload.mfaRequired) {
+        state.mfaRequired = true;
+        state.tempMfaToken = action.payload.tempToken;
+        state.tempUserId = action.payload.userId;
+        return;
+      }
 
-      // 1. Create a clean user object (excluding the token)
+      state.mfaRequired = false;
+      state.tempMfaToken = null;
+      state.tempUserId = null;
+
+      // Backend returns: { accessToken, user: { _id, name, username, email, institute } }
+      const { accessToken, user: apiUser } = action.payload;
+      const { _id, name, username, email, institute, profilePicture } = apiUser || {};
+
+      // 1. Create a clean user object
       const userData = {
         _id: _id,
         id: _id,            // Map _id to id for easier frontend use
         name: name,
         username: username,
         email: email,
-        token : token,
+        token: accessToken,
         institute: institute,
-        profilePicture: profilePicture || '', // Handle if it exists or not
+        profilePicture: profilePicture || '',
       };
 
       // 2. Update Redux State
       state.user = userData;
-      state.token = token;
+      state.token = accessToken;
 
-      // 3. Update Local Storage
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('userInfo', JSON.stringify(userData));
-        localStorage.setItem('token', token);
-      }
+      // 3. Persist via StorageService (SRP)
+      storageService.persistAuth(userData, accessToken);
     },
     authFailure: (state, action) => {
       state.isLoading = false;
@@ -68,11 +70,11 @@ const authSlice = createSlice({
       state.token = null;
       state.success = false;
       state.error = null;
-      
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('userInfo');
-        localStorage.removeItem('token');
-      }
+      state.mfaRequired = false;
+      state.tempMfaToken = null;
+      state.tempUserId = null;
+
+      storageService.clearAuth();
     },
     resetAuthStatus: (state) => {
       state.isLoading = false;
