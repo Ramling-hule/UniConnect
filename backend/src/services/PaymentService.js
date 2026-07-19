@@ -3,6 +3,8 @@ import crypto from 'crypto';
 import { env } from '../config/env.js';
 import Payment from '../models/Payment.js';
 import Booking from '../models/Booking.js';
+import HackathonRegistration from '../models/HackathonRegistration.js';
+import Hackathon from '../models/Hackathon.js';
 
 /**
  * PaymentService — Single Responsibility: Razorpay payment lifecycle.
@@ -118,9 +120,7 @@ class PaymentService {
    * @param {string} userId          - The requesting user's _id
    */
   async createHackathonOrder(registrationId, userId) {
-    const HackathonRegistration = (await import('../models/HackathonRegistration.js')).default;
-    const Hackathon = (await import('../models/Hackathon.js')).default;
-
+    // Static imports at top of file — no dynamic import() inside methods (SRP, OCP)
     const registration = await HackathonRegistration.findById(registrationId);
     if (!registration) {
       const err = new Error('Registration not found'); err.status = 404; throw err;
@@ -169,8 +169,7 @@ class PaymentService {
    * Verifies a Razorpay payment for a hackathon registration.
    */
   async verifyHackathonPayment({ razorpay_order_id, razorpay_payment_id, razorpay_signature, registrationId }) {
-    const HackathonRegistration = (await import('../models/HackathonRegistration.js')).default;
-    const Hackathon             = (await import('../models/Hackathon.js')).default;
+    // Static imports — no dynamic import() inside methods
 
     const keySecret = env.razorpayKeySecret || process.env.RAZORPAY_KEY_SECRET || 'dummy_key_secret';
     const body = `${razorpay_order_id}|${razorpay_payment_id}`;
