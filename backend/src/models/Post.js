@@ -21,6 +21,7 @@ const postSchema = new mongoose.Schema({
       createdAt: { type: Date, default: Date.now },
     },
   ],
+  visibility: { type: String, enum: ['PUBLIC', 'PRIVATE', 'CONNECTIONS_ONLY'], default: 'PUBLIC' },
   // ── Hackathon extension: non-breaking, both fields default to null ──────────
   postType: {
     type: String,

@@ -25,6 +25,7 @@ const userSchema = new mongoose.Schema(
     education: [{ type: mongoose.Schema.Types.Mixed }],
     openToWork: { type: Boolean, default: false },
     openToCompete: { type: Boolean, default: false },
+    visibility: { type: String, enum: ['PUBLIC', 'PRIVATE', 'CONNECTIONS_ONLY'], default: 'PUBLIC' },
     isOrganizer: { type: Boolean, default: false }, // Hackathon organizer permission flag
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     instituteName: { type: String },

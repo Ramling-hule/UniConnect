@@ -10,8 +10,10 @@ import bookingRoutes from './bookingRoutes.js';
 import paymentRoutes from './paymentRoutes.js';
 import reviewRoutes from './reviewRoutes.js';
 import hackathonRoutes from './hackathonRoutes.js';
+import publicRoutes from './publicRoutes.js';
 
 const routes = [
+  ['/api/public', publicRoutes],
   ['/api/auth', authRoutes],
   ['/api/dashboard', dashboardRoutes],
   ['/api/groups', groupRoutes],
