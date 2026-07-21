@@ -21,7 +21,8 @@ const StatCard = ({ label, value, icon: Icon, color = 'indigo' }) => (
 );
 
 export default function HackathonDashboardPage() {
-  const { id }     = useParams();
+  const { slug }   = useParams();
+  const id = slug; // Keep id mapping for existing components
   const { user }   = useSelector(state => state.auth);
   const router     = useRouter();
   const [data, setData]       = useState(null);
