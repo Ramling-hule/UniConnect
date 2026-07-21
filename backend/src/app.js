@@ -61,6 +61,26 @@ app.get('/', (req, res) => {
   res.send('API is running...');
 });
 
+// ── robots.txt — served from API directly so crawlers hitting port 5000 also get it
+app.get('/robots.txt', (req, res) => {
+  res.setHeader('Content-Type', 'text/plain');
+  res.send([
+    'User-agent: *',
+    `Allow: /u/`,
+    `Allow: /post/`,
+    `Allow: /group/`,
+    `Allow: /mentors/`,
+    `Allow: /hackathons/`,
+    `Disallow: /api/`,
+    `Disallow: /feed`,
+    `Disallow: /messages`,
+    `Disallow: /settings`,
+    `Disallow: /dashboard`,
+    `Disallow: /notifications`,
+    `Sitemap: ${env.clientUrl}/sitemap.xml`,
+  ].join('\n'));
+});
+
 registerRoutes(app);
 
 app.use(notFound);

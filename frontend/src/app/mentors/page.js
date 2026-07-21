@@ -1,104 +1,126 @@
-"use client";
-import React, { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { API_BASE_URL } from '@/utils/config';
 import Link from 'next/link';
+import { GraduationCap, Star, Users, ChevronRight } from 'lucide-react';
 
-export default function MentorsExplorePage() {
-  const [search, setSearch] = useState('');
-  const [sort, setSort] = useState('popular');
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['mentors', search, sort],
-    queryFn: async () => {
-      const res = await fetch(`${API_BASE_URL}/api/mentor/explore?search=${search}&sort=${sort}`);
-      if (!res.ok) throw new Error("Failed to fetch mentors");
-      return res.json();
-    }
-  });
+export const metadata = {
+  title: 'Find Expert Mentors | ProConnect',
+  description: 'Browse approved mentors on ProConnect. Connect with industry experts for guidance, sessions, and career growth.',
+  openGraph: {
+    title: 'Find Expert Mentors | ProConnect',
+    description: 'Browse approved mentors on ProConnect.',
+    type: 'website',
+  },
+};
+
+async function getMentors(page = 1) {
+  try {
+    const res = await fetch(`${API_URL}/api/public/mentors?page=${page}&limit=18`, {
+      next: { revalidate: 120 },
+    });
+    if (!res.ok) return { mentors: [], pagination: {} };
+    return res.json();
+  } catch {
+    return { mentors: [], pagination: {} };
+  }
+}
+
+export default async function PublicMentorsPage({ searchParams }) {
+  const page = parseInt((await searchParams)?.page) || 1;
+  const { mentors, pagination } = await getMentors(page);
+
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'ItemList',
+    name: 'ProConnect Mentors',
+    numberOfItems: pagination.total ?? 0,
+    itemListElement: (mentors ?? []).slice(0, 10).map((m, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      item: {
+        '@type': 'Person',
+        name: m.user?.name ?? 'Mentor',
+        url: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/mentors/${m.user?.username}`,
+      },
+    })),
+  };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200">
-      {/* Hero Section */}
-      <div className="bg-slate-900 border-b border-slate-800 py-16 px-6 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 blur-[100px] rounded-full pointer-events-none"></div>
-        <div className="max-w-6xl mx-auto">
-          <h1 className="text-4xl md:text-5xl font-extrabold text-white mb-4">Find Your Perfect Mentor</h1>
-          <p className="text-lg text-slate-400 mb-8 max-w-2xl">Connect with industry experts, get career guidance, and accelerate your growth with 1-on-1 sessions.</p>
-          
-          <div className="flex flex-col md:flex-row gap-4 max-w-3xl">
-            <input 
-              type="text" 
-              placeholder="Search by company, role, or skills..." 
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="flex-1 bg-slate-800/80 border border-slate-700 rounded-xl px-6 py-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all backdrop-blur-sm"
-            />
-            <select 
-              value={sort}
-              onChange={(e) => setSort(e.target.value)}
-              className="bg-slate-800/80 border border-slate-700 rounded-xl px-6 py-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all backdrop-blur-sm cursor-pointer"
-            >
-              <option value="popular">Most Popular</option>
-              <option value="highestRated">Highest Rated</option>
-              <option value="newest">Newest</option>
-            </select>
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pt-16 pb-24">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+
+      <div className="max-w-7xl mx-auto px-4 md:px-8">
+        <div className="text-center py-16">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-blue-50 border border-blue-200 text-blue-700 mb-6">
+            <GraduationCap size={14} /> Expert Mentors
           </div>
+          <h1 className="text-5xl font-extrabold text-slate-900 dark:text-white mb-4">Find Your Mentor</h1>
+          <p className="text-lg text-slate-500 dark:text-slate-400 max-w-xl mx-auto">
+            Connect with industry-approved experts to level up your skills, navigate your career, and build something great.
+          </p>
         </div>
-      </div>
 
-      {/* Mentors Grid */}
-      <div className="max-w-6xl mx-auto px-6 py-12">
-        {isLoading ? (
-          <div className="flex justify-center items-center h-64">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-          </div>
-        ) : error ? (
-          <div className="text-red-400 bg-red-900/20 p-4 rounded-xl text-center border border-red-900/50">{error.message}</div>
-        ) : data?.mentors?.length === 0 ? (
-          <div className="text-center text-slate-500 py-12">No mentors found matching your criteria.</div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {data.mentors.map((mentor) => (
-              <div key={mentor._id} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 hover:border-slate-700 hover:shadow-2xl hover:shadow-blue-900/20 transition-all group flex flex-col h-full">
-                <div className="flex items-start gap-4 mb-4">
-                  <div className="w-16 h-16 rounded-full bg-slate-800 overflow-hidden flex-shrink-0 border-2 border-slate-700">
-                    {mentor.user?.profilePicture ? (
-                      <img src={mentor.user.profilePicture} alt={mentor.user.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-xl font-bold text-slate-500">
-                        {mentor.user?.name?.charAt(0) || 'M'}
-                      </div>
-                    )}
-                  </div>
+        {mentors && mentors.length > 0 ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {mentors.map((mentor) => (
+              <Link
+                key={mentor.id}
+                href={`/mentors/${mentor.user?.username}`}
+                className="group bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
+              >
+                <div className="flex items-center gap-4 mb-4">
+                  <img
+                    src={mentor.user?.profilePicture || '/default-avatar.png'}
+                    alt={mentor.user?.name}
+                    className="w-14 h-14 rounded-full object-cover border-2 border-blue-100"
+                  />
                   <div>
-                    <h3 className="text-lg font-bold text-white group-hover:text-blue-400 transition-colors">{mentor.user?.name}</h3>
-                    <p className="text-sm text-slate-400">{mentor.headline}</p>
-                    <p className="text-xs text-blue-400 font-semibold mt-1">{mentor.company}</p>
+                    <h2 className="font-bold text-slate-900 dark:text-white text-lg leading-tight group-hover:text-blue-600 transition-colors">
+                      {mentor.user?.name}
+                    </h2>
+                    <p className="text-sm text-slate-500 dark:text-slate-400">@{mentor.user?.username}</p>
                   </div>
                 </div>
-
+                <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 mb-1">{mentor.role} @ {mentor.company}</p>
+                <p className="text-sm text-slate-600 dark:text-slate-300 line-clamp-2 mb-4">{mentor.about}</p>
                 <div className="flex flex-wrap gap-2 mb-4">
-                  {mentor.skills.slice(0, 3).map(skill => (
-                    <span key={skill} className="bg-slate-800 text-xs px-2 py-1 rounded-md text-slate-300">{skill}</span>
+                  {(mentor.skills ?? []).slice(0, 3).map(s => (
+                    <span key={s} className="text-xs bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded-full">{s}</span>
                   ))}
-                  {mentor.skills.length > 3 && <span className="bg-slate-800 text-xs px-2 py-1 rounded-md text-slate-400">+{mentor.skills.length - 3}</span>}
                 </div>
+                <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 pt-4 border-t border-slate-100 dark:border-slate-700">
+                  <span className="flex items-center gap-1"><Star size={12} className="text-yellow-500" /> {mentor.averageRating?.toFixed(1) ?? '0.0'}</span>
+                  <span className="flex items-center gap-1"><Users size={12} /> {mentor.totalSessions} sessions</span>
+                  <span className="text-blue-600 dark:text-blue-400 font-semibold flex items-center gap-1">View <ChevronRight size={12} /></span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-24 text-slate-500">No mentors found.</div>
+        )}
 
-                <div className="mt-auto pt-4 border-t border-slate-800 flex items-center justify-between">
-                  <div className="flex items-center gap-1 text-yellow-500">
-                    <span>★</span>
-                    <span className="font-bold text-sm text-white">{mentor.averageRating.toFixed(1)}</span>
-                    <span className="text-xs text-slate-500">({mentor.totalReviews})</span>
-                  </div>
-                  <Link href={`/mentor/${mentor._id}`} className="bg-blue-600/10 text-blue-400 hover:bg-blue-600 hover:text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all">
-                    View Profile
-                  </Link>
-                </div>
-              </div>
+        {pagination && pagination.pages > 1 && (
+          <div className="flex justify-center gap-2 mt-12">
+            {Array.from({ length: pagination.pages }, (_, i) => i + 1).map(p => (
+              <Link
+                key={p}
+                href={`/mentors?page=${p}`}
+                className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${p === page ? 'bg-blue-600 text-white' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50'}`}
+              >
+                {p}
+              </Link>
             ))}
           </div>
         )}
+
+        <div className="mt-16 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-10 text-center text-white">
+          <h3 className="text-2xl font-bold mb-3">Are you an expert? Become a Mentor.</h3>
+          <p className="text-blue-100 mb-6">Share your knowledge, earn from sessions, and help the next generation.</p>
+          <Link href="/login" className="inline-block px-8 py-3 bg-white text-blue-600 font-bold rounded-xl hover:bg-blue-50 transition-colors">
+            Apply as Mentor
+          </Link>
+        </div>
       </div>
     </div>
   );

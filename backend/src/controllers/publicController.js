@@ -1,116 +1,295 @@
-import User from '../models/User.js';
-import Post from '../models/Post.js';
-import Group from '../models/Group.js';
-import mongoose from 'mongoose';
+/**
+ * publicController.js
+ *
+ * Deliberately narrow public API layer.
+ *
+ * Security invariants (verified by security checklist):
+ *  - No req.session / req.user access anywhere in this file.
+ *  - All data returned through allow-list serializers — NEVER raw Mongoose docs.
+ *  - Private resources excluded at the QUERY level (not filtered after the fact).
+ *  - Redis caching on every route with appropriate TTLs.
+ */
+
+import User       from '../models/User.js';
+import Post       from '../models/Post.js';
+import Group      from '../models/Group.js';
+import Mentor     from '../models/Mentor.js';
+import Hackathon  from '../models/Hackathon.js';
+import CacheService from '../services/CacheService.js';
+import {
+  serializePublicUser,
+  serializePublicPost,
+  serializePublicMentor,
+  serializePublicHackathon,
+  serializePublicGroup,
+} from '../lib/serializers/public.serializers.js';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const MAX_LIMIT = 50;
+
+function parsePagination(query) {
+  const page  = Math.max(1, parseInt(query.page)  || 1);
+  const limit = Math.min(MAX_LIMIT, Math.max(1, parseInt(query.limit) || 20));
+  const skip  = (page - 1) * limit;
+  return { page, limit, skip };
+}
+
+// ─── Public Feed ──────────────────────────────────────────────────────────────
+
+export const getPublicFeed = async (req, res) => {
+  try {
+    const { page, limit, skip } = parsePagination(req.query);
+    const cacheKey = `public:feed:${page}:${limit}`;
+
+    const cached = await CacheService.get(cacheKey);
+    if (cached) return res.status(200).json(cached);
+
+    const posts = await Post.find({ visibility: 'PUBLIC' })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('user', 'name username profilePicture headline')
+      .lean();
+
+    const total = await Post.countDocuments({ visibility: 'PUBLIC' });
+
+    const payload = {
+      posts: posts.map(serializePublicPost),
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+    };
+
+    await CacheService.set(cacheKey, payload, 60); // 60s TTL
+    res.status(200).json(payload);
+  } catch (err) {
+    console.error('[public/feed]', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// ─── Public Mentors ───────────────────────────────────────────────────────────
+
+export const getPublicMentors = async (req, res) => {
+  try {
+    const { page, limit, skip } = parsePagination(req.query);
+    const cacheKey = `public:mentors:${page}:${limit}`;
+
+    const cached = await CacheService.get(cacheKey);
+    if (cached) return res.status(200).json(cached);
+
+    const mentors = await Mentor.find({ status: 'approved', isApproved: true })
+      .sort({ averageRating: -1, totalSessions: -1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('user', 'name username profilePicture headline instituteName visibility')
+      .lean();
+
+    const total = await Mentor.countDocuments({ status: 'approved', isApproved: true });
+
+    const payload = {
+      mentors: mentors.map(serializePublicMentor),
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+    };
+
+    await CacheService.set(cacheKey, payload, 120); // 2 min TTL
+    res.status(200).json(payload);
+  } catch (err) {
+    console.error('[public/mentors]', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const getPublicMentorByUsername = async (req, res) => {
+  try {
+    const { username } = req.params;
+    const cacheKey = `public:mentor:${username}`;
+
+    const cached = await CacheService.get(cacheKey);
+    if (cached) return res.status(200).json(cached);
+
+    // Find mentor whose linked User has this username
+    const user = await User.findOne({ username, visibility: 'PUBLIC' }).lean();
+    if (!user) return res.status(404).json({ message: 'Mentor not found' });
+
+    const mentor = await Mentor.findOne({ user: user._id, status: 'approved', isApproved: true })
+      .populate('user', 'name username profilePicture headline instituteName')
+      .lean();
+
+    if (!mentor) return res.status(404).json({ message: 'Mentor not found or not approved' });
+
+    const payload = serializePublicMentor(mentor);
+    await CacheService.set(cacheKey, payload, 120);
+    res.status(200).json(payload);
+  } catch (err) {
+    console.error('[public/mentors/:username]', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// ─── Public Hackathons ────────────────────────────────────────────────────────
+
+export const getPublicHackathons = async (req, res) => {
+  try {
+    const { page, limit, skip } = parsePagination(req.query);
+    const cacheKey = `public:hackathons:${page}:${limit}`;
+
+    const cached = await CacheService.get(cacheKey);
+    if (cached) return res.status(200).json(cached);
+
+    // Only published or ongoing hackathons that are publicly visible and not deleted
+    const query = {
+      status:    { $in: ['published', 'ongoing'] },
+      visibility: 'public',
+      deletedAt:  null,
+    };
+
+    const hackathons = await Hackathon.find(query)
+      .sort({ isFeatured: -1, 'timeline.hackathonStart': 1 })
+      .skip(skip)
+      .limit(limit)
+      .populate('organizer', 'name username profilePicture')
+      .lean({ virtuals: true });
+
+    const total = await Hackathon.countDocuments(query);
+
+    const payload = {
+      hackathons: hackathons.map(serializePublicHackathon),
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) },
+    };
+
+    await CacheService.set(cacheKey, payload, 120);
+    res.status(200).json(payload);
+  } catch (err) {
+    console.error('[public/hackathons]', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const getPublicHackathonBySlug = async (req, res) => {
+  try {
+    const { slug } = req.params;
+    const cacheKey = `public:hackathon:${slug}`;
+
+    const cached = await CacheService.get(cacheKey);
+    if (cached) return res.status(200).json(cached);
+
+    const hackathon = await Hackathon.findOne({
+      slug,
+      status:    { $in: ['published', 'ongoing'] },
+      visibility: 'public',
+      deletedAt:  null,
+    })
+      .populate('organizer', 'name username profilePicture')
+      .lean({ virtuals: true });
+
+    if (!hackathon) return res.status(404).json({ message: 'Hackathon not found or not public' });
+
+    const payload = serializePublicHackathon(hackathon);
+    await CacheService.set(cacheKey, payload, 120);
+    res.status(200).json(payload);
+  } catch (err) {
+    console.error('[public/hackathons/:slug]', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// ─── Public Profile ───────────────────────────────────────────────────────────
 
 export const getPublicProfile = async (req, res) => {
   try {
     const { username } = req.params;
-    const user = await User.findOne({ 
-      username, 
-      visibility: 'PUBLIC' 
-    }).select(
-      'name username headline about profilePicture skills experience education badges points instituteName following createdAt'
-    );
+    const cacheKey = `public:profile:${username}`;
 
-    if (!user) {
-      return res.status(404).json({ message: 'User not found or is private' });
-    }
+    const cached = await CacheService.get(cacheKey);
+    if (cached) return res.status(200).json(cached);
 
-    res.status(200).json(user);
-  } catch (error) {
-    console.error('Error fetching public profile:', error);
+    const user = await User.findOne({ username, visibility: 'PUBLIC' }).lean();
+    if (!user) return res.status(404).json({ message: 'User not found or is private' });
+
+    const payload = serializePublicUser(user);
+    await CacheService.set(cacheKey, payload, 120);
+    res.status(200).json(payload);
+  } catch (err) {
+    console.error('[public/profile/:username]', err.message);
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// ─── Public Post ──────────────────────────────────────────────────────────────
 
 export const getPublicPost = async (req, res) => {
   try {
     const { id } = req.params;
-    
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ message: 'Invalid post ID' });
-    }
+    const cacheKey = `public:post:${id}`;
 
-    const post = await Post.findOne({ 
-      _id: id, 
-      visibility: 'PUBLIC' 
-    }).populate(
-      'user', 
-      'name username profilePicture headline'
-    ).select('-comments.user');
+    const cached = await CacheService.get(cacheKey);
+    if (cached) return res.status(200).json(cached);
 
-    if (!post) {
-      return res.status(404).json({ message: 'Post not found or is private' });
-    }
+    const post = await Post.findOne({ _id: id, visibility: 'PUBLIC' })
+      .populate('user', 'name username profilePicture headline')
+      .lean();
 
-    const sanitizedPost = {
-      _id: post._id,
-      text: post.text,
-      media: post.media,
-      image: post.image,
-      createdAt: post.createdAt,
-      likesCount: post.likes.length,
-      commentsCount: post.comments.length,
-      author: post.user,
-      postType: post.postType,
-      hackathonMeta: post.hackathonMeta
-    };
+    if (!post) return res.status(404).json({ message: 'Post not found or is private' });
 
-    res.status(200).json(sanitizedPost);
-  } catch (error) {
-    console.error('Error fetching public post:', error);
+    const payload = serializePublicPost(post);
+    await CacheService.set(cacheKey, payload, 60);
+    res.status(200).json(payload);
+  } catch (err) {
+    console.error('[public/post/:id]', err.message);
     res.status(500).json({ message: 'Server error' });
   }
 };
+
+// ─── Public Group ─────────────────────────────────────────────────────────────
 
 export const getPublicGroup = async (req, res) => {
   try {
-    const { id } = req.params;
-    
-    if (!mongoose.Types.ObjectId.isValid(id)) {
-        return res.status(400).json({ message: 'Invalid group ID' });
-    }
+    const { slug } = req.params;
+    const cacheKey = `public:group:${slug}`;
 
-    const group = await Group.findOne({ 
-      _id: id, 
-      privacy: 'public' 
-    }).select('name description image institute createdAt members');
+    const cached = await CacheService.get(cacheKey);
+    if (cached) return res.status(200).json(cached);
 
-    if (!group) {
-      return res.status(404).json({ message: 'Group not found or is private' });
-    }
+    // Groups don't have a slug — use _id as the identifier
+    const group = await Group.findOne({ _id: slug, privacy: 'public' }).lean();
+    if (!group) return res.status(404).json({ message: 'Group not found or is private' });
 
-    const sanitizedGroup = {
-      _id: group._id,
-      name: group.name,
-      description: group.description,
-      image: group.image,
-      institute: group.institute,
-      createdAt: group.createdAt,
-      memberCount: group.members.length
-    };
-
-    res.status(200).json(sanitizedGroup);
-  } catch (error) {
-    console.error('Error fetching public group:', error);
+    const payload = serializePublicGroup(group);
+    await CacheService.set(cacheKey, payload, 120);
+    res.status(200).json(payload);
+  } catch (err) {
+    console.error('[public/groups/:slug]', err.message);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
+// ─── Sitemap Data ─────────────────────────────────────────────────────────────
+
 export const getSitemapData = async (req, res) => {
   try {
-    const users = await User.find({ visibility: 'PUBLIC' }).select('username updatedAt').limit(1000);
-    const posts = await Post.find({ visibility: 'PUBLIC' }).select('_id updatedAt').limit(1000);
-    const groups = await Group.find({ privacy: 'public' }).select('_id updatedAt').limit(1000);
+    const cacheKey = 'public:sitemap';
+    const cached = await CacheService.get(cacheKey);
+    if (cached) return res.status(200).json(cached);
 
-    res.status(200).json({
-      users: users.map(u => ({ username: u.username, updatedAt: u.updatedAt || new Date() })),
-      posts: posts.map(p => ({ id: p._id, updatedAt: p.updatedAt || new Date() })),
-      groups: groups.map(g => ({ id: g._id, updatedAt: g.updatedAt || new Date() }))
-    });
-  } catch (error) {
-    console.error('Error fetching sitemap data:', error);
+    const [users, posts, hackathons, groups] = await Promise.all([
+      User.find({ visibility: 'PUBLIC' }).select('username updatedAt').limit(1000).lean(),
+      Post.find({ visibility: 'PUBLIC' }).select('_id updatedAt').limit(1000).lean(),
+      Hackathon.find({ status: { $in: ['published', 'ongoing'] }, visibility: 'public', deletedAt: null })
+        .select('slug updatedAt').limit(1000).lean(),
+      Group.find({ privacy: 'public' }).select('_id updatedAt').limit(1000).lean(),
+    ]);
+
+    const payload = {
+      users:      users.map(u => ({ username: u.username, updatedAt: u.updatedAt })),
+      posts:      posts.map(p => ({ id: p._id, updatedAt: p.updatedAt })),
+      hackathons: hackathons.map(h => ({ slug: h.slug, updatedAt: h.updatedAt })),
+      groups:     groups.map(g => ({ id: g._id, updatedAt: g.updatedAt })),
+    };
+
+    await CacheService.set(cacheKey, payload, 3600); // 1hr TTL for sitemap
+    res.status(200).json(payload);
+  } catch (err) {
+    console.error('[public/sitemap]', err.message);
     res.status(500).json({ message: 'Server error' });
   }
 };

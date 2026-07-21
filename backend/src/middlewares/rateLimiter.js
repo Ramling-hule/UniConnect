@@ -34,3 +34,23 @@ export const registrationLimiter = rateLimit({
     message: 'Too many registration requests from this IP. Please try again in an hour.',
   },
 });
+
+// Stricter limiter for unauthenticated /api/public/* routes.
+// These are open to crawlers/scrapers so we cap more aggressively.
+export const publicApiLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 30,             // 30 req/min per IP — half of the authenticated limit
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => {
+    // Whitelist known crawlers so they aren't accidentally blocked
+    const ua = req.headers['user-agent'] || '';
+    return /Googlebot|bingbot|Slurp|DuckDuckBot|facebookexternalhit|Twitterbot|LinkedInBot|WhatsApp/i.test(ua);
+  },
+  message: {
+    status: 429,
+    error: 'TOO_MANY_REQUESTS',
+    message: 'Too many requests to public API. Please slow down.',
+  },
+});
+
