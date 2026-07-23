@@ -3,8 +3,6 @@ import { getCareerRecommendations, handleCareerChat } from '../controllers/caree
 import { protect } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
-
-// Apply auth protection middleware
 router.use(protect);
 
 router.post('/recommend', getCareerRecommendations);

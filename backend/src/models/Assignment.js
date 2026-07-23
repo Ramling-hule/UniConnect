@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const assignmentSchema = new mongoose.Schema({
   podId: {
@@ -46,4 +46,4 @@ const assignmentSchema = new mongoose.Schema({
 
 assignmentSchema.index({ podId: 1, dueDate: 1 });
 
-module.exports = mongoose.model('Assignment', assignmentSchema);
+export default mongoose.model('Assignment', assignmentSchema);

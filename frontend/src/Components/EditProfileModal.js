@@ -9,16 +9,18 @@ import { extractErrorMessage } from '@/utils/errorHelper';
 export default function EditProfileModal({ isOpen, onClose, userData, onUpdate }) {
   const { user } = useSelector((state) => state.auth);
   const { isDark } = useSelector((state) => state.theme);
-  const [loading, setLoading] = useState(false);
-
-  // Initialize form with existing data
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     headline: userData?.headline || "",
     location: userData?.location || "",
     about: userData?.about || "",
-    skills: userData?.skills ? userData.skills.join(", ") : "", // Convert array to comma string
+    skills: userData?.skills ? userData.skills.join(", ") : "",
     openToWork: userData?.openToWork || false,
     openToCompete: userData?.openToCompete || false,
+    github: userData?.codingProfiles?.github || "",
+    leetcode: userData?.codingProfiles?.leetcode || "",
+    portfolio: userData?.portfolio || "",
+    availability: userData?.availability || "Available",
   });
 
   if (!isOpen) return null;
@@ -38,7 +40,11 @@ export default function EditProfileModal({ isOpen, onClose, userData, onUpdate }
     try {
       const payload = {
          ...formData,
-         skills: formData.skills.split(',').map(s => s.trim()).filter(s => s) 
+         skills: formData.skills.split(',').map(s => s.trim()).filter(s => s),
+         codingProfiles: {
+           github: formData.github,
+           leetcode: formData.leetcode
+         }
       };
 
       const { data } = await apiClient.put('/api/dashboard/user/profile', payload);
@@ -57,20 +63,14 @@ export default function EditProfileModal({ isOpen, onClose, userData, onUpdate }
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className={`w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] ${isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
-        
-        {/* Header */}
+      <div className={`w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] ${isDark ? 'bg-slate-900 text-white' : 'bg-white text-slate-900'}`}>
         <div className={`px-6 py-4 border-b flex justify-between items-center ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
           <h2 className="text-xl font-bold">Edit Profile</h2>
           <button onClick={onClose} className={`p-2 rounded-full transition-colors ${isDark ? 'hover:bg-slate-800' : 'hover:bg-slate-100'}`}>
             <X size={20} />
           </button>
-        </div>
-
-        {/* Scrollable Form Body */}
-        <div className="p-6 overflow-y-auto custom-scrollbar space-y-5">
-           
-           {/* Headline */}
+        </div>
+        <div className="p-6 overflow-y-auto custom-scrollbar space-y-5">
            <div>
               <label className="block text-xs font-bold uppercase opacity-70 mb-1.5">Headline</label>
               <input 
@@ -80,9 +80,7 @@ export default function EditProfileModal({ isOpen, onClose, userData, onUpdate }
                 placeholder="Ex: Student at IIT Bombay | Full Stack Developer"
                 className={`w-full p-3 rounded-xl border bg-transparent outline-none transition-all focus:ring-2 focus:ring-brand-primary/50 ${isDark ? 'border-slate-700' : 'border-slate-200'}`}
               />
-           </div>
-
-           {/* Location */}
+           </div>
            <div>
               <label className="block text-xs font-bold uppercase opacity-70 mb-1.5">Location</label>
               <input 
@@ -92,9 +90,7 @@ export default function EditProfileModal({ isOpen, onClose, userData, onUpdate }
                 placeholder="Ex: Mumbai, India"
                 className={`w-full p-3 rounded-xl border bg-transparent outline-none transition-all focus:ring-2 focus:ring-brand-primary/50 ${isDark ? 'border-slate-700' : 'border-slate-200'}`}
               />
-           </div>
-
-           {/* About / Bio */}
+           </div>
            <div>
               <label className="block text-xs font-bold uppercase opacity-70 mb-1.5">About</label>
               <textarea 
@@ -104,9 +100,7 @@ export default function EditProfileModal({ isOpen, onClose, userData, onUpdate }
                 placeholder="Tell us about yourself..."
                 className={`w-full p-3 rounded-xl border bg-transparent outline-none h-32 resize-none transition-all focus:ring-2 focus:ring-brand-primary/50 ${isDark ? 'border-slate-700' : 'border-slate-200'}`}
               />
-           </div>
-
-           {/* Skills */}
+           </div>
            <div>
               <label className="block text-xs font-bold uppercase opacity-70 mb-1.5">Skills (Comma separated)</label>
               <input 
@@ -118,8 +112,57 @@ export default function EditProfileModal({ isOpen, onClose, userData, onUpdate }
               />
            </div>
 
-           {/* Status Toggles */}
-           <div className={`p-4 rounded-xl border ${isDark ? 'border-slate-800 bg-slate-800/30' : 'border-slate-100 bg-slate-50'}`}>
+           <div className="space-y-1.5">
+             <label className={`text-sm font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>GitHub Profile</label>
+             <input
+               type="url"
+               name="github"
+               value={formData.github}
+               onChange={handleChange}
+               placeholder="https://github.com/username"
+               className={`w-full p-3 rounded-xl border focus:ring-2 focus:ring-brand-primary/50 outline-none transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200'}`}
+             />
+           </div>
+
+           <div className="space-y-1.5">
+             <label className={`text-sm font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>LeetCode Profile</label>
+             <input
+               type="url"
+               name="leetcode"
+               value={formData.leetcode}
+               onChange={handleChange}
+               placeholder="https://leetcode.com/username"
+               className={`w-full p-3 rounded-xl border focus:ring-2 focus:ring-brand-primary/50 outline-none transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200'}`}
+             />
+           </div>
+
+           <div className="space-y-1.5">
+             <label className={`text-sm font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Portfolio Website</label>
+             <input
+               type="url"
+               name="portfolio"
+               value={formData.portfolio}
+               onChange={handleChange}
+               placeholder="https://myportfolio.com"
+               className={`w-full p-3 rounded-xl border focus:ring-2 focus:ring-brand-primary/50 outline-none transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200'}`}
+             />
+           </div>
+
+           <div className="space-y-1.5">
+             <label className={`text-sm font-semibold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Availability</label>
+             <select
+               name="availability"
+               value={formData.availability}
+               onChange={handleChange}
+               className={`w-full p-3 rounded-xl border focus:ring-2 focus:ring-brand-primary/50 outline-none transition-all ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200'}`}
+             >
+               <option value="Available">Available</option>
+               <option value="Busy">Busy</option>
+               <option value="Not Looking">Not Looking</option>
+             </select>
+           </div>
+
+           <div className={`p-4 rounded-xl border ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-brand-primary/5 border-brand-primary/20'} flex flex-col gap-3`}>
               <label className="block text-xs font-bold uppercase opacity-70 mb-3">Status</label>
               
               <div className="flex flex-col gap-3">
@@ -157,9 +200,7 @@ export default function EditProfileModal({ isOpen, onClose, userData, onUpdate }
               </div>
            </div>
 
-        </div>
-
-        {/* Footer Actions */}
+        </div>
         <div className={`p-6 border-t ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
            <button 
              onClick={handleSubmit}

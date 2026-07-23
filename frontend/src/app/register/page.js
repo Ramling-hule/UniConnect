@@ -23,7 +23,6 @@ export default function RegisterPage() {
   const [otp, setOtp] = useState(["", "", "", ""]);
   const inputRefs = useRef([]);
 
-  // Redirect if already logged in
   useEffect(() => {
     if (user) router.push('/dashboard');
     return () => dispatch(resetAuthStatus());
@@ -171,7 +170,7 @@ export default function RegisterPage() {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
                   >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
                   </button>
                 </div>
               </div>

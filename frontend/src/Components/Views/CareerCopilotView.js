@@ -1,26 +1,22 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { Sparkles, Mic, MicOff, Volume2, VolumeX, Play, Square, RefreshCw, Award, BookOpen, AlertCircle, Compass, Send } from 'lucide-react';
+import { openAuthModal } from '@/redux/features/authSlice';
 import { API_BASE_URL } from '@/utils/config';
 import { toast } from 'react-hot-toast';
 
 export default function CareerCopilotView() {
   const { user } = useSelector((state) => state.auth);
   const { isDark } = useSelector((state) => state.theme);
-
-  // AI chat states
+  const dispatch = useDispatch();
   const [messages, setMessages] = useState([
     { role: 'assistant', content: `Hello ${user?.name || 'Student'}! I am your AI Career Copilot. Ask me any career or academic questions, or click "Generate Roadmap" to audit your profile!` }
   ]);
   const [query, setQuery] = useState("");
   const [loadingChat, setLoadingChat] = useState(false);
-
-  // Recommendations roadmap states
   const [roadmap, setRoadmap] = useState(null);
   const [loadingRoadmap, setLoadingRoadmap] = useState(false);
-
-  // Voice APIs states
   const [isListening, setIsListening] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -34,15 +30,12 @@ export default function CareerCopilotView() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
-
-  // Load system voices for speech synthesis
   useEffect(() => {
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       const loadVoices = () => {
         const availableVoices = window.speechSynthesis.getVoices();
         setVoices(availableVoices);
         if (availableVoices.length > 0) {
-          // Default to a premium English voice or the first available
           const defaultVoice = availableVoices.find(v => v.lang.startsWith('en') && v.name.includes('Google')) || availableVoices[0];
           setSelectedVoice(defaultVoice.name);
         }
@@ -52,8 +45,6 @@ export default function CareerCopilotView() {
       window.speechSynthesis.onvoiceschanged = loadVoices;
     }
   }, []);
-
-  // Initialize browser speech recognition
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -81,14 +72,13 @@ export default function CareerCopilotView() {
         rec.onresult = (event) => {
           const transcript = event.results[0][0].transcript;
           setQuery(transcript);
-          // Automatically trigger send on voice result
           handleSendQuery(transcript);
         };
 
         recognitionRef.current = rec;
       }
     }
-  }, [selectedVoice, voiceEnabled, voiceRate]);
+  }, [selectedVoice, voiceEnabled, voiceRate, handleSendQuery]);
 
   const toggleListening = () => {
     if (!recognitionRef.current) {
@@ -106,14 +96,10 @@ export default function CareerCopilotView() {
       recognitionRef.current.start();
     }
   };
-
-  // Speaks response text aloud
   const speakText = (text) => {
     if (!voiceEnabled || typeof window === 'undefined' || !window.speechSynthesis) return;
 
     window.speechSynthesis.cancel(); // Cancel active speech
-
-    // Clean markdown characters from read-aloud text
     const cleanText = text.replace(/[*#`_\-]/g, '').trim();
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
@@ -141,6 +127,11 @@ export default function CareerCopilotView() {
   const handleSendQuery = async (overrideQuery) => {
     const textToSend = overrideQuery || query;
     if (!textToSend.trim()) return;
+
+    if (!user) {
+      dispatch(openAuthModal("Please sign in to chat with the AI Copilot."));
+      return;
+    }
 
     setMessages(prev => [...prev, { role: 'user', content: textToSend }]);
     setQuery("");
@@ -171,6 +162,10 @@ export default function CareerCopilotView() {
   };
 
   const handleGenerateRoadmap = async () => {
+    if (!user) {
+      dispatch(openAuthModal("Please sign in to generate a career roadmap."));
+      return;
+    }
     setLoadingRoadmap(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/career/recommend`, {
@@ -195,8 +190,6 @@ export default function CareerCopilotView() {
 
   return (
     <div className="space-y-6">
-      
-      {/* 1. Header Card */}
       <div className={`p-6 rounded-2xl border shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
         <div className="flex items-center gap-4">
           <div className="p-3 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl">
@@ -222,12 +215,8 @@ export default function CareerCopilotView() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* 2. Interactive AI Chat & Voice (Left, Span 2) */}
         <div className="lg:col-span-2 flex flex-col h-[500px]">
           <div className={`flex-1 rounded-2xl border flex flex-col overflow-hidden transition-colors ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
-            
-            {/* Voice Control Header */}
             <div className={`p-4 border-b flex justify-between items-center ${isDark ? 'border-slate-800 bg-slate-950/40' : 'border-slate-100 bg-slate-50/50'}`}>
               <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">AI Interactive Copilot</span>
               <div className="flex items-center gap-2">
@@ -249,8 +238,6 @@ export default function CareerCopilotView() {
                 )}
               </div>
             </div>
-
-            {/* Messages body */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {messages.map((msg, idx) => {
                 const isAI = msg.role === 'assistant';
@@ -278,8 +265,6 @@ export default function CareerCopilotView() {
               )}
               <div ref={chatEndRef} />
             </div>
-
-            {/* Audio Voice Animation Wave */}
             {isListening && (
               <div className="p-3 bg-red-50 dark:bg-red-950/20 flex items-center justify-center gap-2 border-t dark:border-slate-800 animate-pulse text-xs text-red-600 dark:text-red-400 font-bold">
                 <div className="flex gap-0.5 items-center justify-center">
@@ -291,8 +276,6 @@ export default function CareerCopilotView() {
                 Listening to your voice... Speak clearly
               </div>
             )}
-
-            {/* Speaking visual wave */}
             {isSpeaking && (
               <div className="p-3 bg-blue-50 dark:bg-blue-950/20 flex items-center justify-center gap-2 border-t dark:border-slate-800 text-xs text-blue-600 dark:text-blue-400 font-bold">
                 <div className="flex gap-0.5 items-center justify-center">
@@ -303,8 +286,6 @@ export default function CareerCopilotView() {
                 Copilot is reading response aloud
               </div>
             )}
-
-            {/* User typing / voice controls footer */}
             <div className={`p-4 border-t ${isDark ? 'border-slate-800 bg-slate-950/20' : 'border-slate-100 bg-white'}`}>
               <div className="flex gap-2 items-center">
                 <button
@@ -336,8 +317,6 @@ export default function CareerCopilotView() {
                   <Send size={18} className="translate-x-[1px]" />
                 </button>
               </div>
-
-              {/* Advanced voice synthesizer options panels */}
               {voiceEnabled && voices.length > 0 && (
                 <div className="mt-3 grid grid-cols-2 gap-3 p-2 bg-slate-50 dark:bg-slate-900/60 rounded-xl text-[10px] text-slate-400">
                   <div className="flex flex-col gap-1">
@@ -370,11 +349,7 @@ export default function CareerCopilotView() {
 
           </div>
         </div>
-
-        {/* 3. Static Profile Score & Recommendations Panel (Right, Span 1) */}
         <div className="space-y-6">
-          
-          {/* Roadmap card */}
           <div className={`p-5 rounded-2xl border shadow-sm transition-colors min-h-[500px] flex flex-col justify-between ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100'}`}>
             {roadmap ? (
               <div className="space-y-4 flex-1">
@@ -382,8 +357,6 @@ export default function CareerCopilotView() {
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Academic Audit</span>
                   <span className="bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400 text-xs px-2.5 py-0.5 rounded-full font-bold">Active</span>
                 </div>
-
-                {/* Score Widget */}
                 <div className="flex items-center gap-4 bg-slate-50 dark:bg-slate-950/40 p-3.5 rounded-xl border dark:border-slate-800">
                   <div className="relative w-14 h-14 shrink-0 flex items-center justify-center bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-full font-bold text-lg">
                     {roadmap.profileScore}%
@@ -393,8 +366,6 @@ export default function CareerCopilotView() {
                     <p className="text-[10px] text-slate-500">Based on ProConnect CV completer</p>
                   </div>
                 </div>
-
-                {/* Target roles list */}
                 <div className="space-y-2">
                   <h4 className="text-xs font-bold text-slate-400 uppercase flex items-center gap-1.5"><Compass size={14} /> Ideal Career Tracks</h4>
                   <div className="flex flex-wrap gap-1.5">
@@ -403,8 +374,6 @@ export default function CareerCopilotView() {
                     ))}
                   </div>
                 </div>
-
-                {/* Profile improvement checklist */}
                 <div className="space-y-2">
                   <h4 className="text-xs font-bold text-slate-400 uppercase flex items-center gap-1.5"><AlertCircle size={14} /> Profile Audits</h4>
                   <ul className="text-xs space-y-1.5 text-slate-600 dark:text-slate-300">
@@ -416,8 +385,6 @@ export default function CareerCopilotView() {
                     ))}
                   </ul>
                 </div>
-
-                {/* Recommended Skills */}
                 <div className="space-y-2">
                   <h4 className="text-xs font-bold text-slate-400 uppercase flex items-center gap-1.5"><BookOpen size={14} /> Next Skills to Learn</h4>
                   <div className="flex flex-wrap gap-1.5">
@@ -426,8 +393,6 @@ export default function CareerCopilotView() {
                     ))}
                   </div>
                 </div>
-
-                {/* Recommended Badges */}
                 <div className="space-y-2">
                   <h4 className="text-xs font-bold text-slate-400 uppercase flex items-center gap-1.5"><Award size={14} /> Badges to Target</h4>
                   <div className="flex flex-wrap gap-1.5">
@@ -436,8 +401,6 @@ export default function CareerCopilotView() {
                     ))}
                   </div>
                 </div>
-
-                {/* Roadmaps Short vs Long */}
                 <div className="pt-3 border-t dark:border-slate-800 space-y-3">
                   <div className="p-3 bg-slate-50 dark:bg-slate-950/20 border rounded-xl text-xs">
                     <span className="font-bold text-brand-primary block mb-0.5">Short Term Prep</span>

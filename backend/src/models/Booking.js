@@ -27,8 +27,6 @@ const bookingSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
-// To quickly query upcoming bookings
 bookingSchema.index({ date: 1, startTime: 1 });
 
 export default mongoose.model("Booking", bookingSchema);

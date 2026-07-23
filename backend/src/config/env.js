@@ -46,23 +46,15 @@ export const validateEnv = () => {
   if (missing.length === 0) return true;
 
   const msg = `Missing required environment variables: ${missing.join(', ')}`;
-  if (env.nodeEnv === 'production') {
-    // In production we want to fail fast
-    // eslint-disable-next-line no-console
+  if (env.nodeEnv === 'production') {
     console.error(msg);
     throw new Error(msg);
-  }
-
-  // In non-production, just warn so devs can proceed.
-  // eslint-disable-next-line no-console
+  }
   console.warn(msg);
   return false;
-};
-
-// Validate immediately on import to catch misconfiguration early.
+};
 try {
   validateEnv();
-} catch (e) {
-  // Re-throw so the process exits in production environments.
+} catch (e) {
   throw e;
 }

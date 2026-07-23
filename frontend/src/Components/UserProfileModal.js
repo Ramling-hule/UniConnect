@@ -23,8 +23,7 @@ export default function UserProfileModal({ user, conn, isOpen, onClose }) {
         className={`w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden relative ${
           isDark ? "bg-slate-900 text-white" : "bg-white text-slate-900"
         }`}
-      >
-        {/* Banner */}
+      >
         <div className="h-32 bg-gradient-to-r from-blue-600 to-purple-600"></div>
 
         <button
@@ -34,8 +33,7 @@ export default function UserProfileModal({ user, conn, isOpen, onClose }) {
           <X size={20} />
         </button>
 
-        <div className="px-6 pb-6 relative">
-          {/* Avatar */}
+        <div className="px-6 pb-6 relative">
           <div
             className={`-mt-12 w-24 h-24 rounded-full border-4 flex items-center justify-center text-3xl font-bold shadow-md ${
               isDark ? "bg-slate-800 border-slate-900" : "bg-white border-white"

@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const podMessageSchema = new mongoose.Schema({
   podId: {
@@ -36,9 +36,7 @@ const podMessageSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
-
-// Sharding key consideration: podId
 podMessageSchema.index({ podId: 1, createdAt: -1 });
 podMessageSchema.index({ threadId: 1 });
 
-module.exports = mongoose.model('PodMessage', podMessageSchema);
+export default mongoose.model('PodMessage', podMessageSchema);

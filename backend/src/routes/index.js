@@ -11,6 +11,8 @@ import paymentRoutes from './paymentRoutes.js';
 import reviewRoutes from './reviewRoutes.js';
 import hackathonRoutes from './hackathonRoutes.js';
 import publicRoutes from './publicRoutes.js';
+import podRoutes from './podRoutes.js';
+import teamRoutes from './teamRoutes.js';
 
 const routes = [
   ['/api/public', publicRoutes],
@@ -26,6 +28,8 @@ const routes = [
   ['/api/payment', paymentRoutes],
   ['/api/review', reviewRoutes],
   ['/api/hackathons', hackathonRoutes],
+  ['/api/pods', podRoutes],
+  ['/api/teams', teamRoutes],
 ];
 
 export const registerRoutes = (app) => {

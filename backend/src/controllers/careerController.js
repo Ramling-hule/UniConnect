@@ -3,18 +3,6 @@ import User from '../models/User.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import AppError from '../utils/AppError.js';
 import AiService from '../services/AiService.js';
-
-/**
- * careerController — Thin HTTP adapter for AI-powered career advice.
- *
- * SOLID applied:
- *  - SRP : controller only handles HTTP concerns (parse → delegate → respond → error).
- *  - DIP : depends on AiService abstraction, not the Gemini SDK directly.
- *
- * No module-level side effects — the SDK is initialised lazily inside AiService.
- */
-
-/** Builds a compact text representation of a user's profile for AI prompts. */
 const buildProfileText = (user) => `
 Name: ${user.name}
 Headline: ${user.headline || 'None'}

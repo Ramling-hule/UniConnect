@@ -16,9 +16,7 @@ export default function NotificationDropdown() {
 
   const { items: notifications, unreadCount } = useSelector((state) => state.notifications);
   const { user } = useSelector((state) => state.auth);
-  const { isDark } = useSelector((state) => state.theme);
-
-  // Close when clicking outside
+  const { isDark } = useSelector((state) => state.theme);
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -27,15 +25,10 @@ export default function NotificationDropdown() {
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // --- NEW: FETCH ON CLICK LOGIC ---
-  const handleToggle = async () => {
-    // 1. Toggle the UI state immediately
+  }, []);
+  const handleToggle = async () => {
     const newState = !isOpen;
-    setIsOpen(newState);
-
-    // 2. If we are OPENING the dropdown, fetch fresh data
+    setIsOpen(newState);
     if (newState) {
         setLoading(true);
         try {
@@ -43,9 +36,7 @@ export default function NotificationDropdown() {
             const res = await fetch(`${API_BASE_URL}/api/notifications`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            const data = await res.json();
-            
-            // Save fresh data to Redux
+            const data = await res.json();
             if (Array.isArray(data)) {
                 dispatch(setNotifications(data));
             }
@@ -76,8 +67,7 @@ export default function NotificationDropdown() {
   };
 
   return (
-    <div className="relative" ref={dropdownRef}>
-      {/* 1. BELL ICON BUTTON (Updated onClick) */}
+    <div className="relative" ref={dropdownRef}>
       <button 
         onClick={handleToggle}
         className={`p-2 rounded-full transition-colors relative ${
@@ -90,9 +80,7 @@ export default function NotificationDropdown() {
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
-      </button>
-
-      {/* 2. DROPDOWN MENU */}
+      </button>
       {isOpen && (
         <div className={`absolute right-0 mt-2 w-80 md:w-96 rounded-xl shadow-2xl border overflow-hidden z-50 origin-top-right animate-in fade-in zoom-in-95 duration-200 ${
             isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'
@@ -145,6 +133,21 @@ export default function NotificationDropdown() {
                           <span className={`text-[10px] mt-1 block ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
                              {new Date(notif.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })} at {new Date(notif.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
+                          
+                          {notif.type === 'INTEREST_RECEIVED' && notif.sender?.username && (
+                            <div className="mt-2 flex gap-2">
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  router.push(`/profile/${notif.sender.username}`);
+                                  setIsOpen(false);
+                                }}
+                                className="px-3 py-1 bg-brand-primary text-white text-xs font-semibold rounded hover:bg-brand-primary/90"
+                              >
+                                View Profile
+                              </button>
+                            </div>
+                          )}
                       </div>
                       {!notif.isRead && (
                           <div className="w-2 h-2 rounded-full bg-brand-primary mt-2 shrink-0"></div>

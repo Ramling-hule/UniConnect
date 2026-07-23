@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const progressSchema = new mongoose.Schema({
   userId: {
@@ -42,4 +42,4 @@ const progressSchema = new mongoose.Schema({
 progressSchema.index({ userId: 1, podId: 1 }, { unique: true });
 progressSchema.index({ 'metrics.consistencyStreak': -1 }); // For leaderboard
 
-module.exports = mongoose.model('Progress', progressSchema);
+export default mongoose.model('Progress', progressSchema);

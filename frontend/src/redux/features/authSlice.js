@@ -10,6 +10,8 @@ const initialState = {
   mfaRequired: false,
   tempMfaToken: null,
   tempUserId: null,
+  isAuthModalOpen: false,
+  authModalMessage: "",
 };
 
 const authSlice = createSlice({
@@ -36,12 +38,8 @@ const authSlice = createSlice({
       state.mfaRequired = false;
       state.tempMfaToken = null;
       state.tempUserId = null;
-
-      // Backend returns: { accessToken, user: { _id, name, username, email, institute } }
       const { accessToken, user: apiUser } = action.payload;
       const { _id, name, username, email, institute, profilePicture } = apiUser || {};
-
-      // 1. Create a clean user object
       const userData = {
         _id: _id,
         id: _id,            // Map _id to id for easier frontend use
@@ -52,12 +50,8 @@ const authSlice = createSlice({
         institute: institute,
         profilePicture: profilePicture || '',
       };
-
-      // 2. Update Redux State
       state.user = userData;
       state.token = accessToken;
-
-      // 3. Persist via StorageService (SRP)
       storageService.persistAuth(userData, accessToken);
     },
     authFailure: (state, action) => {
@@ -80,9 +74,16 @@ const authSlice = createSlice({
       state.isLoading = false;
       state.error = null;
       state.success = false;
+    },
+    openAuthModal: (state, action) => {
+      state.isAuthModalOpen = true;
+      state.authModalMessage = action.payload || "Please sign in to continue.";
+    },
+    closeAuthModal: (state) => {
+      state.isAuthModalOpen = false;
     }
   },
 });
 
-export const { authStart, authSuccess, authFailure, logout, resetAuthStatus } = authSlice.actions;
+export const { authStart, authSuccess, authFailure, logout, resetAuthStatus, openAuthModal, closeAuthModal } = authSlice.actions;
 export default authSlice.reducer;

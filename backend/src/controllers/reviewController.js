@@ -13,11 +13,7 @@ export const createReview = asyncHandler(async (req, res, next) => {
   if (booking.user.toString() !== req.user._id.toString()) {
     return next(new AppError("You can only review your own bookings", 403));
   }
-
-  // Ensure it's completed
   if (booking.status !== "Completed") {
-    // For testing, let's allow "Confirmed" to be reviewed too or auto-complete it
-    // return next(new AppError("You can only review completed sessions", 400));
   }
 
   const review = new Review({
@@ -30,8 +26,6 @@ export const createReview = asyncHandler(async (req, res, next) => {
   });
 
   await review.save();
-
-  // Update Mentor Stats
   const mentor = await Mentor.findById(booking.mentor);
   const totalReviews = mentor.totalReviews + 1;
   const averageRating = ((mentor.averageRating * mentor.totalReviews) + rating) / totalReviews;

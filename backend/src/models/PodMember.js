@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const podMemberSchema = new mongoose.Schema({
   podId: {
@@ -43,8 +43,6 @@ const podMemberSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
-
-// Ensure a user can only be active in a specific pod once
 podMemberSchema.index({ podId: 1, userId: 1 }, { unique: true });
 
-module.exports = mongoose.model('PodMember', podMemberSchema);
+export default mongoose.model('PodMember', podMemberSchema);

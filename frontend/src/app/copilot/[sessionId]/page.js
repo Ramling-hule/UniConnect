@@ -24,14 +24,10 @@ const CopilotSession = () => {
   const [activeTab, setActiveTab] = useState('copilot'); 
   const [participants, setParticipants] = useState([]); 
   const [isConnected, setIsConnected] = useState(false);
-  
-  // AI Copilot State
   const [messages, setMessages] = useState([{ role: 'assistant', content: 'Hi there! I am your AI Career Copilot. Ask me about careers, college life, or professional guidance!' }]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
-
-  // --- 1. SOCKET.IO (Chat/User List) ---
   useEffect(() => {
     const serverUrl = API_BASE_URL;
     socket = io(serverUrl, {
@@ -94,8 +90,6 @@ const CopilotSession = () => {
 
   return (
     <div className="flex h-screen bg-brand-dark text-slate-200 font-sans overflow-hidden">
-      
-      {/* SIDEBAR */}
       <aside className="w-72 bg-brand-dark-card/80 backdrop-blur-xl border-r border-brand-dark-border flex flex-col shadow-2xl z-10">
         <div className="p-5 border-b border-brand-dark-border">
           <button 
@@ -108,8 +102,6 @@ const CopilotSession = () => {
           <h3 className="text-2xl font-bold text-brand-primary tracking-tight">
             ProConnect
           </h3>
-          
-          {/* Connection Status Indicators */}
           <div className="space-y-2 mt-4">
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`} />
@@ -128,8 +120,6 @@ const CopilotSession = () => {
             />
           </div>
         </div>
-
-        {/* Participants List */}
         <div className="flex-1 p-5 overflow-y-auto">
           <h4 className="text-xs font-semibold text-slate-400 mb-3 uppercase tracking-wider flex items-center justify-between">
             <span>Participants</span>
@@ -155,11 +145,8 @@ const CopilotSession = () => {
           )}
         </div>
       </aside>
-
-      {/* MAIN AREA */}
       <main className="flex-1 flex flex-col bg-brand-dark/50 backdrop-blur-xl relative">
         <header className="h-16 bg-brand-dark-card/80 backdrop-blur-xl border-b border-brand-dark-border flex items-center justify-between px-6 shadow-lg">
-          {/* Tab Navigation */}
           <div className="flex gap-2">
             <button 
               onClick={() => setActiveTab('copilot')}
@@ -183,14 +170,9 @@ const CopilotSession = () => {
             </button>
           </div>
         </header>
-
-        {/* Content Area */}
         <div className="flex-1 relative overflow-hidden flex flex-col">
-          
-          {/* AI Copilot Tab */}
           {activeTab === 'copilot' && (
             <div className="flex-1 flex flex-col h-full max-w-4xl mx-auto w-full p-4">
-              {/* Chat Messages */}
               <div className="flex-1 overflow-y-auto space-y-6 p-4 rounded-xl bg-brand-dark-card/40 border border-brand-dark-border scrollbar-thin scrollbar-thumb-brand-dark-border">
                 {messages.map((msg, idx) => (
                   <div key={idx} className={`flex gap-4 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
@@ -220,8 +202,6 @@ const CopilotSession = () => {
                 )}
                 <div ref={messagesEndRef} />
               </div>
-
-              {/* Chat Input */}
               <form onSubmit={handleSendMessage} className="mt-4 relative">
                 <input 
                   type="text" 
@@ -241,8 +221,6 @@ const CopilotSession = () => {
               </form>
             </div>
           )}
-
-          {/* Whiteboard Tab */}
           <div className={`h-full w-full ${activeTab === 'whiteboard' ? 'block' : 'hidden'}`}>
             {activeTab === 'whiteboard' && <Tldraw />}
           </div>

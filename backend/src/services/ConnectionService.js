@@ -1,20 +1,7 @@
 import Connection from '../models/Connection.js';
 import User from '../models/User.js';
 import AppError from '../utils/AppError.js';
-
-/**
- * ConnectionService — Single Responsibility: Professional networking / connection management.
- *
- * Design patterns applied:
- *  - Service Layer (SRP): Isolates all connection/network logic from the HTTP controller.
- *  - Repository-like: Abstracts Mongoose queries behind semantic method names.
- */
 class ConnectionService {
-  /**
-   * Sends a connection request from sender to receiver.
-   * @param {string} senderId
-   * @param {string} receiverId
-   */
   async sendRequest(senderId, receiverId) {
     if (senderId.toString() === receiverId.toString()) {
       throw new AppError('Cannot connect to yourself', 400);
@@ -36,13 +23,6 @@ class ConnectionService {
     await Connection.create({ requester: senderId, recipient: receiverId, status: 'pending' });
     return { success: true, message: 'Request sent' };
   }
-
-  /**
-   * Accepts or declines a connection invite.
-   * @param {string} userId      - The recipient (current user)
-   * @param {string} connectionId
-   * @param {'accept'|'decline'} action
-   */
   async respondToInvite(userId, connectionId, action) {
     const connection = await Connection.findById(connectionId);
     if (!connection) throw new AppError('Request not found', 404);
@@ -60,12 +40,6 @@ class ConnectionService {
 
     return { success: true };
   }
-
-  /**
-   * Returns the user's pending invitations and accepted connections.
-   * @param {string} userId
-   * @returns {{ invitations: object[], connections: object[] }}
-   */
   async getNetwork(userId) {
     const invitations = await Connection.find({ recipient: userId, status: 'pending' })
       .populate('requester', 'name institute headline');
@@ -88,12 +62,6 @@ class ConnectionService {
 
     return { invitations: formattedInvites, connections: formattedConnections };
   }
-
-  /**
-   * Fetches all users with their relationship status relative to the current user.
-   * @param {string} currentUserId
-   * @returns {Promise<object[]>}
-   */
   async getDiscoverUsers(currentUserId) {
     const myRelationships = await Connection.find({
       $or: [{ requester: currentUserId }, { recipient: currentUserId }],

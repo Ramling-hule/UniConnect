@@ -18,8 +18,6 @@ const SUGGESTIONS = [
 export default function CopilotPanel({ isOpen, onClose }) {
   const { user } = useSelector((state) => state.auth);
   const isDark = useSelector((state) => state.theme?.isDark);
-
-  // ── Chat state ──
   const [messages, setMessages] = useState([
     {
       role: "assistant",
@@ -29,12 +27,8 @@ export default function CopilotPanel({ isOpen, onClose }) {
   ]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-
-  // ── Voice — Speech Recognition ──
   const [isListening, setIsListening] = useState(false);
   const recognitionRef = useRef(null);
-
-  // ── Voice — Speech Synthesis ──
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [isSpeaking, setIsSpeaking]   = useState(false);
   const [voices, setVoices]           = useState([]);
@@ -44,22 +38,14 @@ export default function CopilotPanel({ isOpen, onClose }) {
 
   const messagesEndRef = useRef(null);
   const inputRef       = useRef(null);
-  // Ref so recognition callback always sees the latest handleSend (fixes stale closure)
   const handleSendRef  = useRef(null);
-  // Ref to track INTENDED listening state inside onend closure (avoids stale closure)
   const isListeningRef = useRef(false);
-
-  /* ─────────────────────────── focus on open ─── */
   useEffect(() => {
     if (isOpen) setTimeout(() => inputRef.current?.focus(), 300);
   }, [isOpen]);
-
-  /* ─────────────────────────── auto scroll ─── */
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
-
-  /* ─────────────────────────── load voices ─── */
   useEffect(() => {
     if (typeof window === "undefined" || !window.speechSynthesis) return;
     const load = () => {
@@ -75,9 +61,6 @@ export default function CopilotPanel({ isOpen, onClose }) {
     load();
     window.speechSynthesis.onvoiceschanged = load;
   }, []);
-
-  /* ─────────────────────────── speech recognition setup ─── */
-  // Run ONCE — recognition instance is created a single time.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -93,8 +76,6 @@ export default function CopilotPanel({ isOpen, onClose }) {
       isListeningRef.current = true;
     };
     rec.onend = () => {
-      // Chrome auto-stops even in non-continuous mode after a sentence.
-      // If the user hasn't manually stopped (isListeningRef is still true), restart.
       if (isListeningRef.current) {
         try { rec.start(); } catch (e) { /* ignore */ }
       } else {
@@ -105,7 +86,6 @@ export default function CopilotPanel({ isOpen, onClose }) {
       if (e.error === "not-allowed" || e.error === "permission-denied") {
         toast.error("Microphone permission denied. Please allow microphone access in your browser settings and try again.");
       } else if (e.error === "no-speech") {
-        // Silence — not a real error, just restart
         return;
       } else {
         console.error("SR error:", e.error);
@@ -114,7 +94,6 @@ export default function CopilotPanel({ isOpen, onClose }) {
       setIsListening(false);
     };
     rec.onresult = (e) => {
-      // Collect only the LAST final result (avoids duplicates)
       let transcript = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         if (e.results[i].isFinal) {
@@ -122,15 +101,11 @@ export default function CopilotPanel({ isOpen, onClose }) {
         }
       }
       if (!transcript.trim()) return;
-      // Put transcript in input box — user presses Send to confirm.
       setInput((prev) => (prev ? prev + " " + transcript.trim() : transcript.trim()));
     };
 
     recognitionRef.current = rec;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // ← only once
-
-  /* ─────────────────────────── speak text ─── */
   const speakText = (text) => {
     if (!voiceEnabled || typeof window === "undefined" || !window.speechSynthesis) return;
     window.speechSynthesis.cancel();
@@ -154,15 +129,12 @@ export default function CopilotPanel({ isOpen, onClose }) {
       setIsSpeaking(false);
     }
   };
-
-  /* ─────────────────────────── mic toggle ─── */
   const toggleMic = () => {
     if (!recognitionRef.current) {
       toast.error("Speech Recognition is not supported in this browser. Please use Chrome or Edge.");
       return;
     }
     if (isListeningRef.current) {
-      // User taps mic again → stop
       isListeningRef.current = false;
       setIsListening(false);
       try { recognitionRef.current.stop(); } catch (e) { /* ignore */ }
@@ -173,13 +145,10 @@ export default function CopilotPanel({ isOpen, onClose }) {
       try {
         recognitionRef.current.start();
       } catch (err) {
-        // already started — ignore InvalidStateError
         console.warn("Recognition already started:", err);
       }
     }
   };
-
-  /* ─────────────────────────── send message ─── */
   const handleSend = async (override) => {
     const text = (override ?? input).trim();
     if (!text || isTyping) return;
@@ -207,8 +176,6 @@ export default function CopilotPanel({ isOpen, onClose }) {
       setIsTyping(false);
     }
   };
-
-  // Keep the ref always pointing at the latest version (avoids stale closure in recognition callback)
   handleSendRef.current = handleSend;
 
   const handleSubmit = (e) => { e.preventDefault(); handleSend(); };
@@ -217,16 +184,12 @@ export default function CopilotPanel({ isOpen, onClose }) {
     stopSpeaking();
     setMessages([{ role: "assistant", content: "Chat cleared! How can I help you today? 🚀" }]);
   };
-
-  /* ─────────────────────────── markdown bold renderer ─── */
   const renderContent = (text) =>
     text.split("**").map((part, i) =>
       i % 2 === 1
         ? <strong key={i} className="font-semibold text-blue-400">{part}</strong>
         : part
     );
-
-  /* ─────────────────────────── colour tokens ─── */
   const surface  = isDark ? "rgba(6,11,24,0.95)"     : "rgba(255,255,255,0.98)";
   const border   = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.08)";
   const textP    = isDark ? "#E8EFF8" : "#0F172A";
@@ -237,15 +200,12 @@ export default function CopilotPanel({ isOpen, onClose }) {
 
   return (
     <>
-      {/* Mobile backdrop */}
       {isOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm md:hidden"
           onClick={onClose}
         />
       )}
-
-      {/* ── Slide-in Panel ── */}
       <div
         className={`fixed top-0 right-0 h-full z-50 flex flex-col w-full sm:w-[420px] transition-transform duration-300 ease-out ${isOpen ? "translate-x-0" : "translate-x-full"}`}
         style={{
@@ -258,7 +218,6 @@ export default function CopilotPanel({ isOpen, onClose }) {
             : "-8px 0 40px rgba(0,0,0,0.1)",
         }}
       >
-        {/* ── Header ── */}
         <div
           className="flex items-center justify-between px-5 py-3.5 flex-shrink-0"
           style={{ borderBottom: `1px solid ${border}` }}
@@ -280,7 +239,6 @@ export default function CopilotPanel({ isOpen, onClose }) {
           </div>
 
           <div className="flex items-center gap-1">
-            {/* Voice on/off */}
             <button
               onClick={() => { setVoiceEnabled(!voiceEnabled); if (!voiceEnabled) stopSpeaking(); }}
               title={voiceEnabled ? "Mute voice output" : "Enable voice output"}
@@ -289,8 +247,6 @@ export default function CopilotPanel({ isOpen, onClose }) {
             >
               {voiceEnabled ? <Volume2 size={16} /> : <VolumeX size={16} />}
             </button>
-
-            {/* Voice settings toggle */}
             <button
               onClick={() => setShowVoiceSettings(!showVoiceSettings)}
               title="Voice settings"
@@ -299,8 +255,6 @@ export default function CopilotPanel({ isOpen, onClose }) {
             >
               <Settings2 size={15} />
             </button>
-
-            {/* Clear */}
             <button
               onClick={handleClear}
               title="Clear chat"
@@ -311,8 +265,6 @@ export default function CopilotPanel({ isOpen, onClose }) {
             >
               <RotateCcw size={15} />
             </button>
-
-            {/* Close */}
             <button
               onClick={onClose}
               className="p-2 rounded-lg transition-all hover:scale-110"
@@ -324,8 +276,6 @@ export default function CopilotPanel({ isOpen, onClose }) {
             </button>
           </div>
         </div>
-
-        {/* ── Voice Settings Panel (collapsible) ── */}
         {showVoiceSettings && voices.length > 0 && (
           <div
             className="px-4 py-3 flex-shrink-0 text-xs grid grid-cols-2 gap-3"
@@ -370,8 +320,6 @@ export default function CopilotPanel({ isOpen, onClose }) {
             </div>
           </div>
         )}
-
-        {/* ── Listening indicator ── */}
         {isListening && (
           <div
             className="flex items-center justify-center gap-2.5 py-2.5 text-xs font-bold flex-shrink-0"
@@ -389,9 +337,6 @@ export default function CopilotPanel({ isOpen, onClose }) {
             <span>Listening… tap mic to stop, then press Send ➤</span>
           </div>
         )}
-
-
-        {/* ── Speaking indicator ── */}
         {isSpeaking && (
           <div
             className="flex items-center justify-center gap-2.5 py-2 text-xs font-bold flex-shrink-0"
@@ -412,8 +357,6 @@ export default function CopilotPanel({ isOpen, onClose }) {
             </button>
           </div>
         )}
-
-        {/* ── Messages ── */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
           {messages.map((msg, idx) => (
             <div
@@ -449,8 +392,6 @@ export default function CopilotPanel({ isOpen, onClose }) {
               </div>
             </div>
           ))}
-
-          {/* Typing indicator */}
           {isTyping && (
             <div className="flex gap-2.5 items-center">
               <div
@@ -473,8 +414,6 @@ export default function CopilotPanel({ isOpen, onClose }) {
               </div>
             </div>
           )}
-
-          {/* Quick suggestions — first load only */}
           {messages.length === 1 && (
             <div className="space-y-2 pt-2">
               <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: textS }}>
@@ -508,14 +447,11 @@ export default function CopilotPanel({ isOpen, onClose }) {
 
           <div ref={messagesEndRef} />
         </div>
-
-        {/* ── Input Area ── */}
         <div
           className="p-4 flex-shrink-0"
           style={{ borderTop: `1px solid ${border}` }}
         >
           <form onSubmit={handleSubmit} className="flex gap-2 items-center">
-            {/* Mic button */}
             <button
               type="button"
               onClick={toggleMic}
@@ -532,8 +468,6 @@ export default function CopilotPanel({ isOpen, onClose }) {
             >
               {isListening ? <MicOff size={17} /> : <Mic size={17} />}
             </button>
-
-            {/* Text input */}
             <input
               ref={inputRef}
               type="text"
@@ -557,8 +491,6 @@ export default function CopilotPanel({ isOpen, onClose }) {
                 e.currentTarget.style.boxShadow = "none";
               }}
             />
-
-            {/* Send button */}
             <button
               type="submit"
               disabled={!input.trim() || isTyping}

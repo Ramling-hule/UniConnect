@@ -1,16 +1,14 @@
 "use client";
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import { Heart, MessageCircle, Share2, MoreHorizontal, Send, FileText, File, Download, ExternalLink } from "lucide-react";
+import { openAuthModal } from "@/redux/features/authSlice";
 import { API_BASE_URL } from "@/utils/config";
-
 /* ─────────────────────────────────────────────────────────
    MediaRenderer — renders the right element for each media type
 ───────────────────────────────────────────────────────── */
 function MediaRenderer({ post, isDark }) {
   const bgMuted = isDark ? "rgba(0,0,0,0.3)" : "#F0F4FF";
-
-  // Backward compat: old posts have post.image, new posts have post.media
   const legacyImage = post.image && !post.media;
   if (legacyImage) {
     return (
@@ -29,8 +27,6 @@ function MediaRenderer({ post, isDark }) {
   if (!media?.url) return null;
 
   const { url, resourceType, format, originalFilename } = media;
-
-  /* Image */
   if (resourceType === "image") {
     return (
       <div className="w-full overflow-hidden" style={{ background: bgMuted }}>
@@ -43,8 +39,6 @@ function MediaRenderer({ post, isDark }) {
       </div>
     );
   }
-
-  /* Video */
   if (resourceType === "video") {
     return (
       <div className="w-full overflow-hidden rounded-b-none" style={{ background: "#000" }}>
@@ -58,8 +52,6 @@ function MediaRenderer({ post, isDark }) {
       </div>
     );
   }
-
-  /* PDF */
   if (resourceType === "raw" && format === "pdf") {
     return (
       <div
@@ -105,15 +97,11 @@ function MediaRenderer({ post, isDark }) {
       </div>
     );
   }
-
-  /* Text file */
   if (resourceType === "raw" && (format === "txt" || format === "md" || format === "text")) {
     return (
       <TextFilePreview url={url} filename={originalFilename} isDark={isDark} />
     );
   }
-
-  /* Generic raw file (fallback) */
   return (
     <div
       className="mx-5 my-3 flex items-center gap-3 p-4 rounded-xl"
@@ -194,7 +182,6 @@ function TextFilePreview({ url, filename, isDark }) {
     </div>
   );
 }
-
 /* ─────────────────────────────────────────────────────────
    Individual Post Card
 ───────────────────────────────────────────────────────── */
@@ -205,11 +192,26 @@ const PostCard = ({ post, user, isDark }) => {
   const [commentText, setCommentText] = useState("");
   const [isShareClicked, setIsShareClicked] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const dispatch = useDispatch();
+
+  const handleToggleComments = () => {
+    if (!user) {
+      dispatch(openAuthModal("Please sign in to view or add comments."));
+      return;
+    }
+    setShowComments(!showComments);
+  };
+
+  const handleToggleMenu = () => {
+    if (!user) {
+      dispatch(openAuthModal("Please sign in to view options."));
+      return;
+    }
+    setIsMenuOpen(!isMenuOpen);
+  };
 
   const currentUserId = user?.id || user?._id;
   const isLiked = likes.some((id) => id?.toString() === currentUserId?.toString());
-
-  /* ── colour tokens ── */
   const surface  = isDark ? "#0D1526" : "#FFFFFF";
   const border   = isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.07)";
   const textPrimary   = isDark ? "#E8EFF8" : "#0F172A";
@@ -219,6 +221,10 @@ const PostCard = ({ post, user, isDark }) => {
   const commentBg     = isDark ? "#060B18" : "#F8FAFF";
 
   const handleLike = async () => {
+    if (!user) {
+      dispatch(openAuthModal("Please sign in to like this post."));
+      return;
+    }
     if (isLiked) {
       setLikes(likes.filter((id) => id?.toString() !== currentUserId?.toString()));
     } else {
@@ -237,6 +243,10 @@ const PostCard = ({ post, user, isDark }) => {
 
   const handleCommentSubmit = async (e) => {
     e.preventDefault();
+    if (!user) {
+      dispatch(openAuthModal("Please sign in to comment on this post."));
+      return;
+    }
     if (!commentText.trim()) return;
     try {
       const res = await fetch(
@@ -256,6 +266,10 @@ const PostCard = ({ post, user, isDark }) => {
   };
 
   const handleShare = () => {
+    if (!user) {
+      dispatch(openAuthModal("Please sign in to share this post."));
+      return;
+    }
     setIsShareClicked(true);
     navigator.clipboard.writeText("Check out this post on ProConnect!");
     setTimeout(() => setIsShareClicked(false), 2000);
@@ -274,10 +288,8 @@ const PostCard = ({ post, user, isDark }) => {
           : "0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04)",
       }}
     >
-      {/* ── HEADER ── */}
       <div className="p-5 flex justify-between items-start">
         <div className="flex items-center gap-3">
-          {/* Avatar */}
           <div
             className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold text-sm shadow-md flex-shrink-0"
             style={{ background: "linear-gradient(135deg, #4F8EF7, #818CF8)" }}
@@ -300,7 +312,7 @@ const PostCard = ({ post, user, isDark }) => {
 
         <div className="relative">
           <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            onClick={handleToggleMenu}
             className="p-1.5 rounded-lg transition-colors"
             style={{ color: textSecondary }}
             onMouseEnter={(e) => (e.currentTarget.style.background = hoverBtn)}
@@ -310,8 +322,6 @@ const PostCard = ({ post, user, isDark }) => {
           </button>
         </div>
       </div>
-
-      {/* ── BODY TEXT ── */}
       {post.text && (
         <div
           className="px-5 pb-4 text-sm leading-7 whitespace-pre-wrap"
@@ -320,20 +330,14 @@ const PostCard = ({ post, user, isDark }) => {
           {post.text}
         </div>
       )}
-
-
-      {/* ── MEDIA ── */}
       <MediaRenderer post={post} isDark={isDark} />
-
-
-      {/* ── STATS ── */}
       <div
         className="px-5 py-2.5 flex justify-between text-xs font-medium"
         style={{ borderTop: `1px solid ${divider}`, color: textSecondary }}
       >
         <span>{likes.length > 0 ? `${likes.length} like${likes.length > 1 ? "s" : ""}` : "Be the first to like"}</span>
         <button
-          onClick={() => setShowComments(!showComments)}
+          onClick={handleToggleComments}
           className="transition-colors"
           style={{ color: textSecondary }}
           onMouseEnter={(e) => (e.currentTarget.style.color = "#4F8EF7")}
@@ -342,13 +346,10 @@ const PostCard = ({ post, user, isDark }) => {
           {comments.length} comment{comments.length !== 1 ? "s" : ""}
         </button>
       </div>
-
-      {/* ── ACTION BUTTONS ── */}
       <div
         className="px-3 py-2 grid grid-cols-3 gap-1"
         style={{ borderTop: `1px solid ${divider}` }}
       >
-        {/* Like */}
         <button
           onClick={handleLike}
           className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all"
@@ -368,10 +369,8 @@ const PostCard = ({ post, user, isDark }) => {
           <Heart size={16} className={isLiked ? "fill-current" : ""} />
           <span>Like</span>
         </button>
-
-        {/* Comment */}
         <button
-          onClick={() => setShowComments(!showComments)}
+          onClick={handleToggleComments}
           className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all"
           style={{ color: textSecondary }}
           onMouseEnter={(e) => (e.currentTarget.style.background = hoverBtn)}
@@ -380,8 +379,6 @@ const PostCard = ({ post, user, isDark }) => {
           <MessageCircle size={16} />
           <span>Comment</span>
         </button>
-
-        {/* Share */}
         <button
           onClick={handleShare}
           className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all"
@@ -400,14 +397,11 @@ const PostCard = ({ post, user, isDark }) => {
           <span>{isShareClicked ? "Copied!" : "Share"}</span>
         </button>
       </div>
-
-      {/* ── COMMENTS SECTION ── */}
       {showComments && (
         <div
           className="p-4"
           style={{ borderTop: `1px solid ${divider}`, background: commentBg }}
         >
-          {/* Existing comments */}
           {comments.length > 0 && (
             <div className="space-y-3 mb-4 max-h-48 overflow-y-auto custom-scrollbar">
               {comments.map((c, i) => (
@@ -434,8 +428,6 @@ const PostCard = ({ post, user, isDark }) => {
               ))}
             </div>
           )}
-
-          {/* Input */}
           <form onSubmit={handleCommentSubmit} className="flex gap-2">
             <input
               type="text"
@@ -472,7 +464,6 @@ const PostCard = ({ post, user, isDark }) => {
     </article>
   );
 };
-
 /* ─────────────────────────────────────────────────────────
    Feed Container
 ───────────────────────────────────────────────────────── */
@@ -500,13 +491,15 @@ export default function Feed({ newPostTrigger }) {
       if (cursor) url.searchParams.append("cursor", cursor);
 
       const res = await fetch(url.toString());
-      if (!res.ok) throw new Error("Failed to fetch posts");
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Failed to fetch posts: ${res.status} ${text}`);
+      }
       
       const data = await res.json();
       
       setPosts(prev => {
         if (!cursor) return data.posts || [];
-        // Prevent duplicates when appending
         const newPosts = (data.posts || []).filter(
           newPost => !prev.some(p => p._id === newPost._id)
         );

@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const podMilestoneSchema = new mongoose.Schema({
   podId: {
@@ -34,4 +34,4 @@ const podMilestoneSchema = new mongoose.Schema({
 
 podMilestoneSchema.index({ podId: 1, weekNumber: 1 });
 
-module.exports = mongoose.model('PodMilestone', podMilestoneSchema);
+export default mongoose.model('PodMilestone', podMilestoneSchema);

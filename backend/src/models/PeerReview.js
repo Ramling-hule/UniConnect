@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const peerReviewSchema = new mongoose.Schema({
   assignmentId: {
@@ -44,4 +44,4 @@ const peerReviewSchema = new mongoose.Schema({
 
 peerReviewSchema.index({ assignmentId: 1, reviewerId: 1, revieweeId: 1 }, { unique: true });
 
-module.exports = mongoose.model('PeerReview', peerReviewSchema);
+export default mongoose.model('PeerReview', peerReviewSchema);

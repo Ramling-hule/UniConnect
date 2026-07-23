@@ -9,11 +9,8 @@ const SunIcon = () => (
 const MoonIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
 );
-
-// Custom ProConnect Dashboard Mockup
 const ProConnectGraphic = ({ isDark }) => (
   <div className="relative animate-float w-full max-w-md mx-auto lg:mx-0">
-    {/* Main Feed Card Mockup */}
     <div className={`
       relative p-5 rounded-2xl shadow-2xl transition-all duration-500 border z-10
       ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}
@@ -39,8 +36,6 @@ const ProConnectGraphic = ({ isDark }) => (
          <div className="flex items-center gap-1 hover:text-blue-500 cursor-pointer"><MessageSquare size={14}/> 32</div>
       </div>
     </div>
-
-    {/* Floating Hackathon Card */}
     <div className={`
       absolute -right-6 -bottom-10 p-4 rounded-xl shadow-xl border flex items-center gap-3 animate-pulse-slow z-20 w-64
       ${isDark ? 'bg-slate-900/90 border-slate-700 backdrop-blur-sm' : 'bg-white/90 border-slate-200 backdrop-blur-sm'}
@@ -53,8 +48,6 @@ const ProConnectGraphic = ({ isDark }) => (
           <p className="text-xs text-slate-500 dark:text-slate-400">Registrations open now</p>
        </div>
     </div>
-
-    {/* Floating Connection Badge */}
     <div className={`
       absolute -left-8 top-10 p-3 rounded-xl shadow-xl border flex items-center gap-3 animate-pulse-slow z-0
       ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}
@@ -75,8 +68,6 @@ export default function LandingPage() {
 
   return (
     <div className={`min-h-screen transition-colors duration-500 font-sans overflow-x-hidden ${isDark ? 'bg-slate-950 text-white' : 'bg-slate-50 text-slate-900'}`}>
-      
-      {/* NAVBAR */}
       <nav className="flex justify-between items-center py-6 px-6 lg:px-12 max-w-7xl mx-auto relative z-30">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-blue-500/30">
@@ -84,8 +75,6 @@ export default function LandingPage() {
           </div>
           <span className="text-2xl font-extrabold tracking-tight">ProConnect</span>
         </div>
-        
-        {/* Desktop Links */}
         <div className={`hidden md:flex gap-8 text-sm font-semibold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>
           <Link href="/hackathons" className="hover:text-blue-600 transition-colors flex items-center gap-1"><Trophy size={16}/> Hackathons</Link>
           <Link href="/mentors" className="hover:text-blue-600 transition-colors flex items-center gap-1"><GraduationCap size={16}/> Mentors</Link>
@@ -97,18 +86,14 @@ export default function LandingPage() {
             {isDark ? <SunIcon /> : <MoonIcon />}
           </button>
           
-          <Link href="/feed">
+          <Link href="/login">
             <button className="bg-blue-600 text-white px-6 py-2.5 rounded-lg text-sm font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20">
                 Sign In
             </button>
           </Link>
         </div>
       </nav>
-
-      {/* HERO SECTION */}
       <main className="max-w-7xl mx-auto px-6 lg:px-12 pt-16 lg:pt-28 pb-24 grid grid-cols-1 lg:grid-cols-2 gap-16 items-center relative z-20">
-        
-        {/* LEFT: Text Content */}
         <div className="space-y-8 max-w-xl animate-fade-up">
           
           <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border ${
@@ -130,10 +115,8 @@ export default function LandingPage() {
           <p className={`text-lg leading-relaxed max-w-md font-medium ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
             Build your professional portfolio, find expert mentors, form elite hackathon teams, and share your achievements with the community.
           </p>
-
-          {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
-            <Link href="/feed" className="w-full sm:w-auto">
+            <Link href="/dashboard" className="w-full sm:w-auto">
                 <button className="bg-blue-600 text-white px-8 py-4 rounded-xl font-bold text-base transition-all hover:-translate-y-1 shadow-xl shadow-blue-600/30 w-full flex items-center justify-center gap-2">
                   Explore Feed <ChevronRight size={18} />
                 </button>
@@ -146,8 +129,6 @@ export default function LandingPage() {
                 </button>
             </Link>
           </div>
-
-          {/* Feature Highlights */}
           <div className={`pt-10 grid grid-cols-3 gap-4 border-t ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
              <div className="flex flex-col gap-1">
                 <span className="text-2xl font-black text-blue-600">10k+</span>
@@ -163,10 +144,7 @@ export default function LandingPage() {
              </div>
           </div>
         </div>
-
-        {/* RIGHT: Visuals */}
         <div className="relative flex justify-center lg:justify-end min-h-[500px] items-center mt-10 lg:mt-0">
-          {/* Background Gradients */}
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-tr from-blue-600/20 to-purple-500/20 rounded-full blur-3xl -z-10"></div>
           
           <ProConnectGraphic isDark={isDark} />

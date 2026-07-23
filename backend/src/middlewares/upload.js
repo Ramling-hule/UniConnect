@@ -1,21 +1,15 @@
 import multer from 'multer';
 import AppError from '../utils/AppError.js';
-
-// Whitelisted MIME types → mapped to Cloudinary resource_type
 const ALLOWED_TYPES = {
-  // Images
   'image/jpeg':  { resource_type: 'image', maxBytes: 10 * 1024 * 1024 },
   'image/jpg':   { resource_type: 'image', maxBytes: 10 * 1024 * 1024 },
   'image/png':   { resource_type: 'image', maxBytes: 10 * 1024 * 1024 },
   'image/gif':   { resource_type: 'image', maxBytes: 10 * 1024 * 1024 },
   'image/webp':  { resource_type: 'image', maxBytes: 10 * 1024 * 1024 },
-  // Videos
   'video/mp4':   { resource_type: 'video', maxBytes: 100 * 1024 * 1024 },
   'video/webm':  { resource_type: 'video', maxBytes: 100 * 1024 * 1024 },
   'video/quicktime': { resource_type: 'video', maxBytes: 100 * 1024 * 1024 },
-  // Documents
   'application/pdf': { resource_type: 'raw', maxBytes: 25 * 1024 * 1024 },
-  // Text
   'text/plain':  { resource_type: 'raw', maxBytes: 1 * 1024 * 1024 },
   'text/markdown': { resource_type: 'raw', maxBytes: 1 * 1024 * 1024 },
 };
@@ -38,7 +32,6 @@ const upload = multer({
   storage,
   fileFilter,
   limits: {
-    // Use the largest allowed size here; per-type enforcement happens in the controller
     fileSize: 100 * 1024 * 1024, // 100 MB global max
   },
 });

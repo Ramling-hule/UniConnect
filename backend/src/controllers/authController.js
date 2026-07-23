@@ -3,29 +3,10 @@ import AuditService from "../services/AuditService.js";
 import { env } from "../config/env.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import AppError from "../utils/AppError.js";
-
-/**
- * authController — Thin HTTP adapter layer.
- *
- * SOLID applied:
- *  - SRP : controller only handles HTTP concerns (parse → delegate → respond → error).
- *  - DRY : `_setRefreshCookie()` eliminates the 7-line cookie block that was duplicated
- *          across loginUser, verifyMfaLogin, and googleSignIn.
- *  - DIP : depends on AuthService and AuditService abstractions.
- */
-
-// ── Shared helpers ─────────────────────────────────────────────────────────────
-
-/** Extracts IP + user-agent from the request for device-tracking. */
 const getDeviceInfo = (req) => ({
   ipAddress: req.ip || req.headers["x-forwarded-for"] || req.socket.remoteAddress,
   userAgent: req.headers["user-agent"],
 });
-
-/**
- * Sets the httpOnly refresh-token cookie on the response.
- * Centralising this prevents the subtle bugs that come from copy-pasting cookie options.
- */
 const setRefreshCookie = (res, rawRefreshToken) => {
   res.cookie("refreshToken", rawRefreshToken, {
     httpOnly: true,
@@ -35,8 +16,6 @@ const setRefreshCookie = (res, rawRefreshToken) => {
     maxAge:   30 * 24 * 60 * 60 * 1000, // 30 days
   });
 };
-
-/** Builds the standard user payload returned on successful authentication. */
 const formatUserResponse = (user) => ({
   _id:        user._id,
   name:       user.name,
@@ -44,10 +23,6 @@ const formatUserResponse = (user) => ({
   email:      user.email,
   institute:  user.institute,
 });
-
-// ── Auth handlers ──────────────────────────────────────────────────────────────
-
-// 1. REGISTER
 export const registerUser = asyncHandler(async (req, res, next) => {
   try {
     const userId = await AuthService.register(req.body);
@@ -63,8 +38,6 @@ export const registerUser = asyncHandler(async (req, res, next) => {
     return next(new AppError(error.message, error.status || 500));
   }
 });
-
-// 2. VERIFY EMAIL
 export const verifyEmail = asyncHandler(async (req, res, next) => {
   try {
     const user = await AuthService.verifyEmail(req.body);
@@ -74,8 +47,6 @@ export const verifyEmail = asyncHandler(async (req, res, next) => {
     return next(new AppError(error.message, error.status || 500));
   }
 });
-
-// 3. LOGIN
 export const loginUser = asyncHandler(async (req, res, next) => {
   try {
     const result = await AuthService.login({ ...req.body, deviceInfo: getDeviceInfo(req) });
@@ -95,8 +66,6 @@ export const loginUser = asyncHandler(async (req, res, next) => {
     return next(new AppError(error.message, error.status || 500));
   }
 });
-
-// 4. REFRESH TOKEN ROTATION
 export const rotateRefreshToken = asyncHandler(async (req, res, next) => {
   try {
     const result = await AuthService.rotateRefreshToken(
@@ -114,16 +83,11 @@ export const rotateRefreshToken = asyncHandler(async (req, res, next) => {
     return next(new AppError(error.message, error.status || 500));
   }
 });
-
-// 5. FORGOT PASSWORD
 export const forgotPassword = asyncHandler(async (req, res, next) => {
   const user = await AuthService.forgotPassword(req.body.email);
   if (user) await AuditService.log(user._id, "PASSWORD_RESET_REQUESTED", req);
-  // Always return success to prevent email enumeration
   res.status(200).json({ message: "If that email exists, a reset link has been sent." });
 });
-
-// 6. RESET PASSWORD
 export const resetPassword = asyncHandler(async (req, res, next) => {
   try {
     const user = await AuthService.resetPassword(req.body);
@@ -133,36 +97,26 @@ export const resetPassword = asyncHandler(async (req, res, next) => {
     return next(new AppError(error.message, error.status || 500));
   }
 });
-
-// 7. LOGOUT (SINGLE DEVICE)
 export const logoutUser = asyncHandler(async (req, res, next) => {
   const userId = await AuthService.logout(req.cookies?.refreshToken, req.ip);
   if (userId) await AuditService.log(userId, "LOGOUT_SUCCESS", req);
   res.clearCookie("refreshToken");
   res.json({ message: "Logged out successfully" });
 });
-
-// 8. LOGOUT ALL DEVICES
 export const logoutAllDevices = asyncHandler(async (req, res, next) => {
   await AuthService.logoutAllDevices(req.user._id);
   res.clearCookie("refreshToken");
   await AuditService.log(req.user._id, "LOGOUT_ALL_DEVICES", req);
   res.json({ message: "Logged out from all devices" });
 });
-
-// 9. MFA SETUP
 export const setupMfa = asyncHandler(async (req, res, next) => {
   const result = await AuthService.setupMfa(req.user._id);
   res.json(result);
 });
-
-// 10. MFA ENABLE
 export const enableMfa = asyncHandler(async (req, res, next) => {
   await AuthService.enableMfa(req.user._id, req.body.code);
   res.json({ message: "MFA enabled successfully" });
 });
-
-// 11. MFA LOGIN VERIFY
 export const verifyMfaLogin = asyncHandler(async (req, res, next) => {
   try {
     const result = await AuthService.verifyMfaLogin({ ...req.body, deviceInfo: getDeviceInfo(req) });
@@ -174,8 +128,6 @@ export const verifyMfaLogin = asyncHandler(async (req, res, next) => {
     return next(new AppError(error.message, error.status || 401));
   }
 });
-
-// 12. GOOGLE SIGN IN
 export const googleSignIn = asyncHandler(async (req, res, next) => {
   try {
     const result = await AuthService.googleSignIn({

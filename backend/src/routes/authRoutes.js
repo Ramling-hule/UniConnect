@@ -27,13 +27,9 @@ router.post('/forgot-password', forgotPassword);
 router.post('/reset-password', validateResetPassword, resetPassword);
 router.post('/logout', logoutUser);
 router.post('/logout-all', protect, logoutAllDevices);
-
-// MFA Routes
 router.get('/mfa/setup', protect, setupMfa);
 router.post('/mfa/enable', protect, enableMfa);
 router.post('/login/mfa', loginLimiter, verifyMfaLogin);
-
-// Google Auth
 router.post('/google', loginLimiter, googleSignIn);
 
 export default router;

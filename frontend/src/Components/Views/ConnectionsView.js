@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { Check, X, Search, MoreVertical, Loader } from "lucide-react";
 import UserProfileModal from "@/Components/UserProfileModal";
 import { openChat } from "@/redux/features/chatSlice";
+import { openAuthModal } from "@/redux/features/authSlice";
 import { API_BASE_URL } from "@/utils/config";
 
 export default function ConnectionsView() {
@@ -16,9 +17,7 @@ export default function ConnectionsView() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [selectedConnection, setSelectedConnection] = useState(null);
 
-  const dispatch = useDispatch();
-
-  // 1. Fetch Network Data
+  const dispatch = useDispatch();
   useEffect(() => {
     const fetchNetwork = async () => {
       try {
@@ -28,8 +27,7 @@ export default function ConnectionsView() {
         });
         const data = await res.json();
 
-        if (res.ok) {
-          // Ensure these are arrays before setting to avoid .map errors
+        if (res.ok) {
           setInvites(Array.isArray(data.invitations) ? data.invitations : []);
           setConnections(
             Array.isArray(data.connections) ? data.connections : []
@@ -41,16 +39,17 @@ export default function ConnectionsView() {
         setLoading(false);
       }
     };
-    if (user) fetchNetwork();
-  }, [user]);
-
-  // 2. Handle Accept/Reject
-  const handleResponse = async (connectionId, action) => {
-    // Optimistic Update: Remove from UI immediately
+    const token = user?.token || (typeof window !== 'undefined' ? localStorage.getItem("token") : null);
+    if (user || token) {
+      fetchNetwork();
+    } else {
+      setLoading(false);
+    }
+  }, [user]);
+  const handleResponse = async (connectionId, action) => {
     setInvites((prev) => prev.filter((i) => i._id !== connectionId));
 
-    if (action === "accept") {
-      // Find the invite data to move it to connections list instantly
+    if (action === "accept") {
       const inviteData = invites.find((i) => i._id === connectionId);
       if (inviteData && inviteData.user) {
         setConnections((prev) => [inviteData.user, ...prev]);
@@ -81,8 +80,7 @@ export default function ConnectionsView() {
     );
 
   return (
-    <div className="space-y-8 animate-fade-up pb-10">
-      {/* 1. INVITATIONS SECTION */}
+    <div className="space-y-8 animate-fade-up pb-10">
       <section>
         <div className="flex justify-between items-center mb-4">
           <h3
@@ -105,7 +103,7 @@ export default function ConnectionsView() {
                 : "border-slate-200 text-slate-400"
             }`}
           >
-            No pending invitations.
+            {!user ? "Sign in to see your pending invitations." : "No pending invitations."}
           </div>
         ) : (
           <div className="flex gap-4 overflow-x-auto pb-4 custom-scrollbar snap-x">
@@ -117,8 +115,7 @@ export default function ConnectionsView() {
                     ? "bg-slate-800 border-slate-700"
                     : "bg-white border-slate-100"
                 }`}
-              >
-                {/* FIX: Access invite.user instead of invite directly */}
+              >
                 <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-brand-primary to-purple-500 flex items-center justify-center text-white font-bold text-xl mb-3">
                   {invite.user?.name?.[0] || "?"}
                 </div>
@@ -134,8 +131,7 @@ export default function ConnectionsView() {
                   {invite.user?.institute || "Institute"}
                 </p>
 
-                <div className="flex gap-2 w-full mt-auto">
-                  {/* Pass invite._id (Connection ID) not User ID */}
+                <div className="flex gap-2 w-full mt-auto">
                   <button
                     onClick={() => handleResponse(invite._id, "accept")}
                     className="flex-1 flex items-center justify-center gap-1 bg-brand-primary text-white py-2 rounded-lg text-xs font-bold hover:bg-blue-700 transition-colors"
@@ -157,9 +153,7 @@ export default function ConnectionsView() {
             ))}
           </div>
         )}
-      </section>
-
-      {/* 2. MY CONNECTIONS SECTION */}
+      </section>
       <section>
         <div className="flex justify-between items-center mb-4">
           <h3
@@ -194,8 +188,13 @@ export default function ConnectionsView() {
           }`}
         >
           {connections.length === 0 ? (
-            <div className="p-8 text-center text-slate-500 text-sm">
-              You haven&apos;t connected with anyone yet.
+            <div className="p-12 text-center text-slate-500 text-sm">
+              {!user ? "Sign in to view and manage your professional connections." : "You haven't connected with anyone yet."}
+              {!user && (
+                <div className="mt-6">
+                  <button onClick={() => dispatch(openAuthModal("Please sign in to manage your network."))} className="px-6 py-2.5 font-bold text-white bg-blue-600 rounded-xl hover:bg-blue-700 shadow-md inline-block">Sign In</button>
+                </div>
+              )}
             </div>
           ) : (
             connections.map((conn, index) => (

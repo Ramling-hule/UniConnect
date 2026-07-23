@@ -15,8 +15,6 @@ export default function ProfileDropdown() {
 
   const { user } = useSelector((state) => state.auth);
   const { isDark } = useSelector((state) => state.theme);
-
-  // Close when clicking outside
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -36,7 +34,6 @@ export default function ProfileDropdown() {
 
   return (
     <div className="relative" ref={dropdownRef}>
-      {/* TRIGGER BUTTON (Profile Picture) */}
       <button 
         onClick={() => setIsOpen(!isOpen)}
         className="w-9 h-9 rounded-full bg-brand-primary text-white flex items-center justify-center font-bold overflow-hidden border-2 border-transparent hover:border-brand-primary transition-all focus:outline-none"
@@ -47,8 +44,6 @@ export default function ProfileDropdown() {
             user?.name?.[0] || 'U'
         )}
       </button>
-
-      {/* DROPDOWN MENU */}
       {isOpen && (
         <div className={`absolute right-0 mt-2 w-56 rounded-xl shadow-2xl border overflow-hidden z-50 origin-top-right animate-in fade-in zoom-in-95 duration-200 ${
             isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'

@@ -1,6 +1,4 @@
 import Message from '../models/Message.js';
-
-// ─── State ────────────────────────────────────────────────────────────────────
 const roomParticipants = new Map();
 const getRoomUsers = (roomId) => Array.from(roomParticipants.get(roomId)?.values() || []);
 
@@ -11,8 +9,6 @@ const removeSocketFromRooms = (socketId) => {
     }
   });
 };
-
-// ─── Handler Factories (SRP) ──────────────────────────────────────────────────
 
 function createUserHandlers(io, socket) {
   socket.on('setup_user', async (userId) => {
@@ -133,45 +129,39 @@ function createRoomHandlers(io, socket) {
     }
   });
 }
-
-/**
- * createHackathonHandlers — Hackathon team chat & live updates.
- *
- * Reuse strategy:
- *  - 'join_hackathon_team' mirrors 'join_group' — joins the team's Group room.
- *    This means the existing send_group_message / receive_group_message pipeline
- *    handles all team chat messages with ZERO new code.
- *  - 'hackathon_team_update' broadcasts real-time team roster changes.
- *
- * NO existing handlers are modified. This is a pure additive extension.
- */
 function createHackathonHandlers(io, socket) {
-  // Join a hackathon team's chat room (reuses group socket infrastructure)
   socket.on('join_hackathon_team', ({ teamId, userId }) => {
     if (!teamId || !userId) return;
-    // We join using the teamId as the room — matching how GroupChatWindow.js uses groupId
     socket.join(teamId);
   });
-
-  // Broadcast team member changes (join/leave/invite) to all team members
   socket.on('hackathon_team_update', ({ teamId, event, payload }) => {
     if (!teamId) return;
     socket.to(teamId).emit('hackathon_team_update', { event, payload });
   });
-
-  // Live submission status broadcast within the team room
   socket.on('hackathon_submission_update', ({ teamId, isDraft }) => {
     if (!teamId) return;
     socket.to(teamId).emit('hackathon_submission_update', { isDraft });
   });
 }
+function createPodHandlers(io, socket) {
+  socket.on('join_pod', (podId) => socket.join(`pod_${podId}`));
 
-// ─── Entry Point ──────────────────────────────────────────────────────────────
+  socket.on('send_pod_message', async (data) => {
+    const { senderId, podId, content } = data;
+    try {
+      // In a real scenario we'd persist this in PodMessage, but the controller handles persistence for HTTP.
+      // Here we just broadcast real-time if they send over socket.
+      socket.to(`pod_${podId}`).emit('receive_pod_message', { senderId, podId, content, createdAt: new Date() });
+    } catch (err) {
+      console.error('Pod message error:', err);
+    }
+  });
 
-/**
- * registerSocketHandlers
- * Refactored using Factory Method to separate concerns (SRP).
- */
+  socket.on('task_updated', ({ podId, assignmentId }) => {
+    socket.to(`pod_${podId}`).emit('task_updated', { assignmentId });
+  });
+}
+
 export const registerSocketHandlers = (io) => {
   io.on('connection', (socket) => {
     createUserHandlers(io, socket);
@@ -179,6 +169,7 @@ export const registerSocketHandlers = (io) => {
     createGroupHandlers(io, socket);
     createRoomHandlers(io, socket);
     createHackathonHandlers(io, socket); // ← new, additive only
+    createPodHandlers(io, socket);
   });
 };
 

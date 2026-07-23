@@ -38,8 +38,6 @@ export default function ChatWindow() {
       
       const roomId = getRoomId(currentUserId, otherUserId);
       socket.emit('join_chat', roomId);
-
-      // Tell the server we are active in this room and mark pending messages as read
       socket.emit('read_messages', { senderId: otherUserId, receiverId: currentUserId });
 
       apiClient.get(`/api/messages/${currentUserId}/${otherUserId}`)
@@ -60,7 +58,6 @@ export default function ChatWindow() {
       socket.on('receive_message', (newMessage) => {
          if (newMessage.sender === otherUserId) {
             setChatHistory((prev) => Array.isArray(prev) ? [...prev, newMessage] : [newMessage]);
-            // If the chat is open, immediately mark as read
             socket.emit('read_messages', { senderId: otherUserId, receiverId: currentUserId });
          }
       });
@@ -235,8 +232,6 @@ export default function ChatWindow() {
     }
     return <p>{highlightText(msg.text || "", searchQuery)}</p>;
   };
-
-  // Filter messages dynamically when search query is typed
   const displayedMessages = searchQuery.trim()
     ? chatHistory.filter(msg => msg.text && msg.text.toLowerCase().includes(searchQuery.toLowerCase()))
     : chatHistory;
@@ -245,8 +240,6 @@ export default function ChatWindow() {
 
   return (
     <div className={`fixed bottom-12 right-4 w-80 md:w-96 rounded-t-xl shadow-2xl border z-50 flex flex-col ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`} style={{ height: '450px' }}>
-      
-      {/* Header */}
       <div className="bg-brand-primary text-white p-3 rounded-t-xl flex justify-between items-center cursor-pointer shadow-md">
          <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-bold text-sm">
@@ -265,8 +258,6 @@ export default function ChatWindow() {
              <button onClick={() => dispatch(closeChat())} className="p-1 hover:bg-white/20 rounded"><X size={16} /></button>
          </div>
       </div>
-
-      {/* Togglable Search Input */}
       {showSearch && (
         <div className={`p-2 border-b flex items-center gap-2 ${isDark ? 'border-slate-800 bg-slate-950' : 'border-slate-200 bg-slate-50'}`}>
           <input
@@ -282,8 +273,6 @@ export default function ChatWindow() {
           )}
         </div>
       )}
-
-      {/* Messages Body */}
       <div className={`flex-1 overflow-y-auto p-4 space-y-3 ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
          {displayedMessages?.map((msg, index) => {
             const isMe = msg.sender === currentUserId;
@@ -310,8 +299,6 @@ export default function ChatWindow() {
           )}
          <div ref={scrollRef} />
       </div>
-
-      {/* Input Footer */}
       <form onSubmit={handleSendMessage} className={`p-3 border-t flex gap-2 items-center ${isDark ? 'border-slate-800 bg-slate-900' : 'border-slate-100 bg-white'}`}>
          <label className="p-1.5 text-slate-400 hover:text-brand-primary rounded-full cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-800 transition">
             {isUploading ? (

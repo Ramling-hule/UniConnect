@@ -1,23 +1,7 @@
-/**
- * StorageService — Single Responsibility: Browser storage operations.
- *
- * SOLID applied:
- *  - SRP : Extracts side-effectful localStorage operations out of Redux reducers.
- *  - DIP : Redux reducers (and components) interact with this service rather than
- *          raw `window.localStorage` APIs directly.
- */
 class StorageService {
   constructor() {
     this.isBrowser = typeof window !== 'undefined';
   }
-
-  // --- Auth state persistence ---
-
-  /**
-   * Persists the user and token to local storage.
-   * @param {object} user 
-   * @param {string} token 
-   */
   persistAuth(user, token) {
     if (!this.isBrowser) return;
     try {
@@ -27,10 +11,6 @@ class StorageService {
       console.warn('Failed to persist auth state to localStorage', err);
     }
   }
-
-  /**
-   * Clears the user and token from local storage.
-   */
   clearAuth() {
     if (!this.isBrowser) return;
     try {
@@ -40,11 +20,6 @@ class StorageService {
       console.warn('Failed to clear auth state from localStorage', err);
     }
   }
-
-  /**
-   * Retrieves the persisted user object.
-   * @returns {object|null}
-   */
   getPersistedUser() {
     if (!this.isBrowser) return null;
     try {
@@ -55,11 +30,6 @@ class StorageService {
       return null;
     }
   }
-
-  /**
-   * Retrieves the persisted auth token.
-   * @returns {string|null}
-   */
   getPersistedToken() {
     if (!this.isBrowser) return null;
     return localStorage.getItem('token');

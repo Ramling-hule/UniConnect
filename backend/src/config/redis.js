@@ -1,7 +1,5 @@
 import { createClient } from 'redis';
-import { env } from './env.js';
-
-// Limit retries so the process doesn't hang forever when Redis is unreachable
+import { env } from './env.js';
 const redisClient = createClient({
     url: env.redisUrl,
     socket: {
@@ -16,8 +14,7 @@ const redisClient = createClient({
     }
 });
 
-redisClient.on('error', (err) => {
-    // Only log the message, not the full stack — keeps output clean
+redisClient.on('error', (err) => {
     console.warn('Redis unavailable:', err.message);
 });
 redisClient.on('connect', () => console.log('✅ Redis client connected'));

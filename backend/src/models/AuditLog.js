@@ -19,8 +19,6 @@ const auditLogSchema = new mongoose.Schema({
   metadata: { type: mongoose.Schema.Types.Mixed },
   timestamp: { type: Date, default: Date.now, index: true }
 });
-
-// Auto-delete records older than 90 days (7776000 seconds)
 auditLogSchema.index({ timestamp: 1 }, { expireAfterSeconds: 90 * 24 * 60 * 60 });
 
 export default mongoose.model('AuditLog', auditLogSchema);

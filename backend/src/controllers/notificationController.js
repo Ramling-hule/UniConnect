@@ -3,8 +3,6 @@ import redisClient from '../config/redis.js';
 import notificationManager from '../services/notificationService.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import AppError from '../utils/AppError.js';
-
-// Helper to Create & Emit
 const createNotification = async (io, { recipientId, senderId, type, message, link }) => {
   try {
     const results = await notificationManager.notify({
@@ -19,8 +17,6 @@ const createNotification = async (io, { recipientId, senderId, type, message, li
     console.error("Notification Error:", err);
   }
 };
-
-// API: Get User's Notifications
 const getNotifications = asyncHandler(async (req, res, next) => {
   const userId = req.user.id;
   let cachedNotifs = null;
@@ -39,7 +35,7 @@ const getNotifications = asyncHandler(async (req, res, next) => {
 
   const notifs = await Notification.find({ recipient: userId })
     .sort({ createdAt: -1 })
-    .populate('sender', 'name profilePicture')
+    .populate('sender', 'name username profilePicture')
     .limit(20);
 
   try {
@@ -52,8 +48,6 @@ const getNotifications = asyncHandler(async (req, res, next) => {
 
   res.json(notifs);
 });
-
-// 1. NEW: API Handler to Create Notification manually
 const sendNotificationAPI = asyncHandler(async (req, res, next) => {
   const { recipientId, type, message, link } = req.body;
   const senderId = req.user.id;
@@ -68,11 +62,9 @@ const sendNotificationAPI = asyncHandler(async (req, res, next) => {
     link
   }, io);
 
-  const populatedNotif = await results.DbNotificationObserver?.populate('sender', 'name profilePicture');
+  const populatedNotif = await results.DbNotificationObserver?.populate('sender', 'name username profilePicture');
   res.status(201).json(populatedNotif);
 });
-
-// API: Mark as Read
 const markRead = asyncHandler(async (req, res, next) => {
   await Notification.updateMany(
     { recipient: req.user.id, isRead: false },

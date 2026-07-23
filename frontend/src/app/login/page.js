@@ -11,9 +11,14 @@ import { GoogleLogin } from '@react-oauth/google';
 import { loginSchema, getZodError } from '@/utils/schemas';
 import { Eye, EyeOff } from 'lucide-react';
 
-export default function LoginPage() {
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
+
+function LoginContent() {
   const router = useRouter();
   const dispatch = useDispatch();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get('callbackUrl') || '/dashboard';
   
   const { isLoading, error, user, mfaRequired, tempMfaToken, tempUserId } = useSelector((state) => state.auth);
   
@@ -24,9 +29,9 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (user && !mfaRequired) {
-      router.push('/dashboard');
+      router.push(callbackUrl);
     }
-  }, [user, mfaRequired, router]);
+  }, [user, mfaRequired, router, callbackUrl]);
 
   useEffect(() => {
     return () => dispatch(resetAuthStatus());
@@ -81,7 +86,7 @@ export default function LoginPage() {
       });
       dispatch(authSuccess(data));
       toast.success('MFA verification successful!');
-      router.push('/dashboard');
+      router.push(callbackUrl);
     } catch (err) {
       const msg = extractErrorMessage(err, 'MFA Verification failed');
       dispatch(authFailure(msg));
@@ -170,7 +175,7 @@ export default function LoginPage() {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 opacity-50 hover:opacity-100"
                   >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
                   </button>
                 </div>
               </div>
@@ -210,5 +215,13 @@ export default function LoginPage() {
 
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <LoginContent />
+    </Suspense>
   );
 }

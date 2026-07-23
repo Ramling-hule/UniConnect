@@ -13,15 +13,11 @@ import { notFound, errorHandler } from './middlewares/errorHandler.js';
 
 const app = express();
 const allowedOrigins = [env.clientUrl, 'http://localhost:3001'];
-const sessionStore = redisClient.isReady
-  ? new RedisStore({ client: redisClient })
-  : undefined;
+const sessionStore = new RedisStore({ client: redisClient });
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
-app.use(cookieParser());
-
-// Robust Production Security Headers via Helmet
+app.use(cookieParser());
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -59,9 +55,7 @@ app.use(session({
 
 app.get('/', (req, res) => {
   res.send('API is running...');
-});
-
-// ── robots.txt — served from API directly so crawlers hitting port 5000 also get it
+});
 app.get('/robots.txt', (req, res) => {
   res.setHeader('Content-Type', 'text/plain');
   res.send([

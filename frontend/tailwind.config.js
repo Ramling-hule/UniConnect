@@ -1,4 +1,3 @@
-/** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
@@ -13,7 +12,6 @@ module.exports = {
       },
       colors: {
         brand: {
-          // Core
           primary:      "#4F8EF7",
           "primary-hover": "#3B78F0",
           "primary-muted": "rgba(79,142,247,0.12)",
@@ -21,22 +19,16 @@ module.exports = {
           success:      "#34D399",
           danger:       "#F87171",
           warning:      "#FBBF24",
-
-          // Dark surfaces
           dark:         "#060B18",
           "dark-card":  "#0D1526",
           "dark-elevated": "#141F35",
           "dark-border": "rgba(255,255,255,0.07)",
           "dark-border-strong": "rgba(255,255,255,0.12)",
-
-          // Light surfaces
           light:        "#F0F4FF",
           "light-card": "#FFFFFF",
           "light-elevated": "#F8FAFF",
           "light-border": "rgba(0,0,0,0.08)",
           "light-border-strong": "rgba(0,0,0,0.14)",
-
-          // Text
           "text-primary-dark":   "#E8EFF8",
           "text-secondary-dark": "#6B7FA3",
           "text-primary-light":  "#0F172A",

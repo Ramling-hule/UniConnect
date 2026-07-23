@@ -71,7 +71,6 @@ export default function MentorDashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200">
-      {/* Top Navbar */}
       <div className="bg-slate-900 border-b border-slate-800 p-6 sticky top-0 z-10">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div>
@@ -93,8 +92,6 @@ export default function MentorDashboardPage() {
       </div>
 
       <div className="max-w-6xl mx-auto p-6 mt-6">
-        
-        {/* OVERVIEW TAB */}
         {activeTab === 'overview' && (
           <div className="animate-fade-up space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -116,7 +113,7 @@ export default function MentorDashboardPage() {
             </div>
 
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
-              <h2 className="text-xl font-bold text-white mb-6">Today's Sessions</h2>
+              <h2 className="text-xl font-bold text-white mb-6">Today&apos;s Sessions</h2>
               {todaysBookings.length === 0 ? (
                 <p className="text-slate-500">No sessions scheduled for today.</p>
               ) : (
@@ -138,8 +135,6 @@ export default function MentorDashboardPage() {
             </div>
           </div>
         )}
-
-        {/* SERVICES TAB */}
         {activeTab === 'services' && (
           <div className="animate-fade-up grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-4">
@@ -169,8 +164,6 @@ export default function MentorDashboardPage() {
             </div>
           </div>
         )}
-
-        {/* BOOKINGS TAB */}
         {activeTab === 'bookings' && (
           <div className="animate-fade-up bg-slate-900 border border-slate-800 rounded-2xl p-6">
             <h2 className="text-xl font-bold text-white mb-6">Upcoming Bookings</h2>

@@ -33,8 +33,6 @@ export default function CollabLobby() {
   return (
     <div className="flex h-screen justify-center items-center bg-brand-dark text-white font-sans p-4">
       <div className="w-full max-w-md">
-
-        {/* Back link */}
         <Link
           href="/dashboard"
           className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-white mb-8 transition-colors"
@@ -42,8 +40,6 @@ export default function CollabLobby() {
           <ArrowLeft size={16} />
           Back to Dashboard
         </Link>
-
-        {/* Header */}
         <div className="flex items-center gap-3 mb-2">
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center shadow-xl shadow-purple-500/30">
             <Users size={22} className="text-white" />
@@ -53,8 +49,6 @@ export default function CollabLobby() {
             <p className="text-slate-400 text-sm">Shared whiteboard for teams</p>
           </div>
         </div>
-
-        {/* Info banner */}
         <div className="mt-4 mb-6 p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-start gap-3">
           <Pencil size={15} className="text-blue-400 mt-0.5 flex-shrink-0" />
           <p className="text-xs text-blue-300 leading-relaxed">
@@ -64,8 +58,6 @@ export default function CollabLobby() {
         </div>
 
         <div className="bg-brand-dark-card p-6 rounded-2xl border border-brand-dark-border shadow-2xl">
-
-          {/* Name Input */}
           <div className="mb-5">
             <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
               Your Display Name

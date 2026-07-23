@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const mentorInterventionSchema = new mongoose.Schema({
   podId: {
@@ -42,4 +42,4 @@ const mentorInterventionSchema = new mongoose.Schema({
 mentorInterventionSchema.index({ podId: 1, status: 1 });
 mentorInterventionSchema.index({ studentId: 1 });
 
-module.exports = mongoose.model('MentorIntervention', mentorInterventionSchema);
+export default mongoose.model('MentorIntervention', mentorInterventionSchema);

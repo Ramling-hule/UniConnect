@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const userInteractionSchema = new mongoose.Schema({
   userId: {
@@ -29,9 +29,7 @@ const userInteractionSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
-
-// Index for ML aggregation and analytics queries
 userInteractionSchema.index({ userId: 1, action: 1, createdAt: -1 });
 userInteractionSchema.index({ mentorId: 1, action: 1 });
 
-module.exports = mongoose.model('UserInteraction', userInteractionSchema);
+export default mongoose.model('UserInteraction', userInteractionSchema);

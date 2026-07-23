@@ -6,22 +6,11 @@ import { asyncHandler } from '../utils/asyncHandler.js';
 import CacheService from '../services/CacheService.js';
 import crypto from 'crypto';
 
-/**
- * bookingController — Thin HTTP adapter layer.
- *
- * SOLID applied:
- *  - SRP : controller handles only HTTP concerns.
- *  - DIP : uses CacheService.acquireLock / releaseLock facade — never touches redisClient directly.
- *  - OCP : lock strategy can be changed in CacheService without touching this file.
- */
-
 export const createBooking = asyncHandler(async (req, res, next) => {
   const { mentorId, serviceId, date, startTime, endTime, notes } = req.body;
 
   const service = await MentorServiceModel.findById(serviceId);
   if (!service) return next(new AppError('Service not found', 404));
-
-  // Distributed lock to prevent double-booking (via CacheService facade)
   const lockKey   = `booking_lock:${mentorId}:${date}:${startTime}`;
   const lockValue = crypto.randomUUID();
   const acquired  = await CacheService.acquireLock(lockKey, lockValue, 120); // 2 min TTL
@@ -34,7 +23,6 @@ export const createBooking = asyncHandler(async (req, res, next) => {
   }
 
   try {
-    // Double-check DB to guard against race conditions
     const existingBooking = await Booking.findOne({
       mentor: mentorId,
       date,

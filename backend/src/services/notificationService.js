@@ -27,8 +27,6 @@ class NotificationService {
     return results;
   }
 }
-
-// Concrete Observer: Database persistence
 class DbNotificationObserver {
   async update(data) {
     const newNotif = await Notification.create({
@@ -42,8 +40,6 @@ class DbNotificationObserver {
     return newNotif;
   }
 }
-
-// Concrete Observer: Redis Cache Invalidation
 class RedisNotificationObserver {
   async update(data) {
     try {
@@ -56,13 +52,9 @@ class RedisNotificationObserver {
     return true;
   }
 }
-
-// Concrete Observer: Socket.io Real-time Broadcast
 class SocketNotificationObserver {
   async update(data, io) {
     if (!io) return null;
-    
-    // Find the saved notification and populate sender info
     const notif = await Notification.findOne({
       recipient: data.recipientId,
       sender: data.senderId,
@@ -79,8 +71,6 @@ class SocketNotificationObserver {
     return false;
   }
 }
-
-// Instantiate and configure publisher
 const notificationManager = new NotificationService();
 notificationManager.subscribe(new DbNotificationObserver());
 notificationManager.subscribe(new RedisNotificationObserver());

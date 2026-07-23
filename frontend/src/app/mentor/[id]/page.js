@@ -3,13 +3,15 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import apiClient from '@/services/apiClient';
 import { useParams, useRouter } from 'next/navigation';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import toast from 'react-hot-toast';
+import { openAuthModal } from '@/redux/features/authSlice';
 
 export default function MentorProfilePage() {
   const { id } = useParams();
   const router = useRouter();
   const { user } = useSelector((state) => state.auth);
+  const dispatch = useDispatch();
 
   const [activeTab, setActiveTab] = useState('services');
 
@@ -42,8 +44,7 @@ export default function MentorProfilePage() {
 
   const handleBook = (serviceId) => {
     if (!user) {
-      toast.error("Please login to book a session");
-      router.push('/login');
+      dispatch(openAuthModal("Please sign in to book a session."));
       return;
     }
     router.push(`/checkout?mentorId=${id}&serviceId=${serviceId}`);
@@ -51,7 +52,6 @@ export default function MentorProfilePage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 pb-20">
-      {/* Profile Header */}
       <div className="bg-slate-900 border-b border-slate-800 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-r from-blue-900/20 to-purple-900/20 pointer-events-none"></div>
         <div className="max-w-5xl mx-auto px-6 py-12 relative z-10">
@@ -65,12 +65,12 @@ export default function MentorProfilePage() {
                 </div>
               )}
             </div>
-            
+
             <div className="text-center md:text-left flex-1">
               <h1 className="text-3xl md:text-4xl font-bold text-white mb-2">{mentor.user?.name}</h1>
               <p className="text-xl text-blue-400 font-medium mb-1">{mentor.headline}</p>
               <p className="text-slate-400 mb-4">{mentor.role} @ {mentor.company} • {mentor.yearsOfExperience} YOE</p>
-              
+
               <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mb-6">
                 <div className="flex items-center gap-1 bg-slate-800/50 px-3 py-1.5 rounded-lg border border-slate-700">
                   <span className="text-yellow-500">★</span>
@@ -94,8 +94,6 @@ export default function MentorProfilePage() {
           </div>
         </div>
       </div>
-
-      {/* Main Content */}
       <div className="max-w-5xl mx-auto px-6 py-8">
         <div className="flex border-b border-slate-800 gap-8 mb-8">
           {['services', 'about', 'reviews'].map(tab => (
@@ -112,7 +110,7 @@ export default function MentorProfilePage() {
         {activeTab === 'services' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-up">
             {services.length === 0 ? (
-              <p className="text-slate-400 col-span-2">This mentor hasn't added any services yet.</p>
+              <p className="text-slate-400 col-span-2">This mentor hasn&apos;t added any services yet.</p>
             ) : (
               services.map(service => (
                 <div key={service._id} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 flex flex-col hover:border-slate-700 transition-all">
@@ -145,7 +143,6 @@ export default function MentorProfilePage() {
 
         {activeTab === 'reviews' && (
           <div className="animate-fade-up">
-            {/* Reviews fetched here typically, keeping simple for plan */}
             <p className="text-slate-400 bg-slate-900 p-8 border border-slate-800 rounded-2xl text-center">Reviews will be populated here as users complete sessions.</p>
           </div>
         )}

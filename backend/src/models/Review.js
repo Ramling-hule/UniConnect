@@ -15,8 +15,6 @@ const reviewSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
-// A user can only review a specific booking once
 reviewSchema.index({ booking: 1 }, { unique: true });
 
 export default mongoose.model("Review", reviewSchema);

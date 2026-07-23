@@ -1,33 +1,12 @@
-/**
- * public.serializers.js
- *
- * Strict allow-list serializers for every model exposed via /api/public/*.
- *
- * WHY allow-list (not delete-based):
- *  - A delete-based approach ("remove password from doc") silently exposes any NEW
- *    sensitive field added to the model in the future.
- *  - An allow-list approach means a new field is NEVER exposed until someone
- *    explicitly decides to add it here.
- *
- * Rules enforced here:
- *  - No email, phone, password hash, session/token data
- *  - No internal IDs where not needed for linking
- *  - No connection lists, private group membership, invite codes
- *  - No financial data (earnings, payment details)
- *  - No verification documents (identityProofUrl, companyIdUrl)
- *  - No security fields (failedLoginAttempts, lockedUntil, mfaSecret, tokenVersion)
- */
-
-// ─── User / Profile ───────────────────────────────────────────────────────────
 
 export function serializePublicUser(user) {
   if (!user) return null;
-  // Mongoose document → plain object if needed
   const u = user.toObject ? user.toObject() : user;
   return {
     id:             u._id,
     name:           u.name,
     username:       u.username,
+    email:          u.email || `${u.username}@example.com`,
     headline:       u.headline   ?? null,
     about:          u.about      ?? null,
     profilePicture: u.profilePicture ?? '',
@@ -42,8 +21,6 @@ export function serializePublicUser(user) {
     createdAt:      u.createdAt,
   };
 }
-
-/** Strip private fields from embedded experience objects */
 function sanitizeExperience(list) {
   return list.map(e => ({
     title:       e.title       ?? null,
@@ -55,8 +32,6 @@ function sanitizeExperience(list) {
     current:     e.current     ?? false,
   }));
 }
-
-/** Strip private fields from embedded education objects */
 function sanitizeEducation(list) {
   return list.map(e => ({
     school:     e.school     ?? null,
@@ -68,8 +43,6 @@ function sanitizeEducation(list) {
     activities: e.activities ?? null,
   }));
 }
-
-// ─── Mentor ───────────────────────────────────────────────────────────────────
 
 export function serializePublicMentor(mentor) {
   if (!mentor) return null;
@@ -85,19 +58,14 @@ export function serializePublicMentor(mentor) {
     yearsOfExperience: m.yearsOfExperience ?? 0,
     skills:            m.skills            ?? [],
     languages:         m.languages         ?? [],
-    // Socials — public links only, never resumeUrl
     linkedin:          m.linkedin   ?? null,
     github:            m.github     ?? null,
     portfolio:         m.portfolio  ?? null,
-    // Stats
     averageRating: m.averageRating ?? 0,
     totalSessions: m.totalSessions ?? 0,
     totalReviews:  m.totalReviews  ?? 0,
-    // NO: totalEarnings, identityProofUrl, companyIdUrl, resumeUrl, videoIntroUrl (private verification assets)
   };
 }
-
-// ─── Post ─────────────────────────────────────────────────────────────────────
 
 export function serializePublicPost(post) {
   if (!post) return null;
@@ -119,18 +87,14 @@ export function serializePublicPost(post) {
     likesCount:    Array.isArray(p.likes)    ? p.likes.length    : (p.likesCount    ?? 0),
     commentsCount: Array.isArray(p.comments) ? p.comments.length : (p.commentsCount ?? 0),
     postType:      p.postType ?? 'regular',
-    // Only expose safe hackathon meta fields
     hackathonMeta: p.hackathonMeta ? {
       hackathonId: p.hackathonMeta.hackathonId ?? null,
       rolesNeeded: p.hackathonMeta.rolesNeeded ?? [],
       techStack:   p.hackathonMeta.techStack   ?? [],
     } : null,
     createdAt:     p.createdAt,
-    // NO: full likes array (exposes user IDs), comments array (private), _v
   };
 }
-
-// ─── Hackathon ────────────────────────────────────────────────────────────────
 
 export function serializePublicHackathon(hackathon) {
   if (!hackathon) return null;
@@ -172,11 +136,8 @@ export function serializePublicHackathon(hackathon) {
     eligibility:     h.eligibility ?? {},
     organizer,
     createdAt:       h.createdAt,
-    // NO: organizer internal ID, deletedAt, certificateTemplate, rules internals
   };
 }
-
-// ─── Group ────────────────────────────────────────────────────────────────────
 
 export function serializePublicGroup(group) {
   if (!group) return null;
@@ -189,6 +150,5 @@ export function serializePublicGroup(group) {
     institute:   g.institute   ?? null,
     memberCount: Array.isArray(g.members) ? g.members.length : 0,
     createdAt:   g.createdAt,
-    // NO: admins, members arrays (user IDs leaked), joinRequests, inviteCode
   };
 }

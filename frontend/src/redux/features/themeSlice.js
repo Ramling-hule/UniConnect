@@ -13,8 +13,7 @@ const themeSlice = createSlice({
       if (typeof window !== 'undefined') {
         localStorage.setItem('theme', state.isDark ? 'dark' : 'light');
       }
-    },
-    // NEW: Action to explicitly set theme from localStorage
+    },
     setTheme: (state, action) => {
       state.isDark = action.payload;
     }

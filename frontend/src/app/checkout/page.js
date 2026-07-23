@@ -44,12 +44,9 @@ function CheckoutContent() {
 
   const checkoutMutation = useMutation({
     mutationFn: async () => {
-      // 1. Create Booking (which locks slot)
       const { data: bookingData } = await apiClient.post('/api/booking', {
         mentorId, serviceId, date, startTime: time, endTime: "TBD", notes
       });
-
-      // 2. Create Razorpay Order
       const { data: orderData } = await apiClient.post('/api/payment/create-order', {
         bookingId: bookingData.booking._id
       });
@@ -66,7 +63,6 @@ function CheckoutContent() {
         order_id: orderData.id,
         handler: async function (response) {
           try {
-            // Verify payment on backend
             const { data: verifyData } = await apiClient.post('/api/payment/verify', {
               razorpay_order_id: response.razorpay_order_id,
               razorpay_payment_id: response.razorpay_payment_id,

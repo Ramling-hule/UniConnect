@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const podSchema = new mongoose.Schema({
   name: {
@@ -57,8 +57,6 @@ const podSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
-
-// Indexes for AI Matching and querying active pods
 podSchema.index({ status: 1, 'requirements.skillLevel': 1, 'schedule.timezone': 1 });
 
-module.exports = mongoose.model('Pod', podSchema);
+export default mongoose.model('Pod', podSchema);

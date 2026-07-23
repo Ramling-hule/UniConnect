@@ -2,10 +2,8 @@ import mongoose from 'mongoose';
 
 const postSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  text: { type: String },
-  // Legacy field — kept for backward compat with old posts
-  image: { type: String },
-  // New rich media object — populated for all new posts
+  text: { type: String },
+  image: { type: String },
   media: {
     url:              { type: String },
     resourceType:     { type: String, enum: ['image', 'video', 'raw'] }, // Cloudinary resource_type
@@ -21,8 +19,7 @@ const postSchema = new mongoose.Schema({
       createdAt: { type: Date, default: Date.now },
     },
   ],
-  visibility: { type: String, enum: ['PUBLIC', 'PRIVATE', 'CONNECTIONS_ONLY'], default: 'PUBLIC' },
-  // ── Hackathon extension: non-breaking, both fields default to null ──────────
+  visibility: { type: String, enum: ['PUBLIC', 'PRIVATE', 'CONNECTIONS_ONLY'], default: 'PUBLIC' },
   postType: {
     type: String,
     enum: ['regular', 'hackathon_lfm'],

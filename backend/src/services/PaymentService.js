@@ -5,15 +5,6 @@ import Payment from '../models/Payment.js';
 import Booking from '../models/Booking.js';
 import HackathonRegistration from '../models/HackathonRegistration.js';
 import Hackathon from '../models/Hackathon.js';
-
-/**
- * PaymentService — Single Responsibility: Razorpay payment lifecycle.
- *
- * Design patterns applied:
- *  - Service Layer (SRP): All payment business logic lives here, not in the controller.
- *  - Dependency Inversion: Depends on env config abstraction, not process.env directly.
- *  - Facade: Wraps the Razorpay SDK behind a clean application-level interface.
- */
 class PaymentService {
   constructor() {
     this._razorpay = new Razorpay({
@@ -21,13 +12,6 @@ class PaymentService {
       key_secret: env.razorpayKeySecret || process.env.RAZORPAY_KEY_SECRET || 'dummy_key_secret',
     });
   }
-
-  /**
-   * Creates a Razorpay order and a corresponding Payment record.
-   * @param {string} bookingId  - Booking _id
-   * @param {string} userId     - The requesting user's _id
-   * @returns {{ order: object, paymentId: string }}
-   */
   async createOrder(bookingId, userId) {
     const booking = await Booking.findById(bookingId);
     if (!booking) {
@@ -71,12 +55,6 @@ class PaymentService {
 
     return { order, paymentId: payment._id };
   }
-
-  /**
-   * Verifies a Razorpay payment signature and updates the DB accordingly.
-   * @param {{ razorpay_order_id, razorpay_payment_id, razorpay_signature, bookingId }} payload
-   * @returns {{ success: boolean, meetingLink?: string }}
-   */
   async verifyPayment({ razorpay_order_id, razorpay_payment_id, razorpay_signature, bookingId }) {
     const keySecret = env.razorpayKeySecret || process.env.RAZORPAY_KEY_SECRET || 'dummy_key_secret';
     const body = `${razorpay_order_id}|${razorpay_payment_id}`;
@@ -113,14 +91,7 @@ class PaymentService {
     err.status = 400;
     throw err;
   }
-  /**
-   * Creates a Razorpay order for a hackathon registration (non-free hackathons).
-   * Existing createOrder() for bookings is completely unchanged.
-   * @param {string} registrationId  - HackathonRegistration _id
-   * @param {string} userId          - The requesting user's _id
-   */
   async createHackathonOrder(registrationId, userId) {
-    // Static imports at top of file — no dynamic import() inside methods (SRP, OCP)
     const registration = await HackathonRegistration.findById(registrationId);
     if (!registration) {
       const err = new Error('Registration not found'); err.status = 404; throw err;
@@ -164,12 +135,7 @@ class PaymentService {
 
     return { order, paymentId: payment._id };
   }
-
-  /**
-   * Verifies a Razorpay payment for a hackathon registration.
-   */
   async verifyHackathonPayment({ razorpay_order_id, razorpay_payment_id, razorpay_signature, registrationId }) {
-    // Static imports — no dynamic import() inside methods
 
     const keySecret = env.razorpayKeySecret || process.env.RAZORPAY_KEY_SECRET || 'dummy_key_secret';
     const body = `${razorpay_order_id}|${razorpay_payment_id}`;

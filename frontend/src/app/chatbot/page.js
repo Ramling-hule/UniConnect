@@ -17,7 +17,6 @@ const ChatbotPage = () => {
   const [isStreaming, setIsStreaming] = useState(false);
   const chatEndRef = useRef(null);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -50,18 +49,15 @@ const ChatbotPage = () => {
 
         const chunk = decoder.decode(value, { stream: true });
 
-        // ✅ CORRECT: Create a NEW object instead of mutating the old one
         setMessages((prev) => {
           const newMessages = [...prev];
           const lastMsgIndex = newMessages.length - 1;
 
-          // Create a shallow copy of the last message
           const updatedLastMsg = {
             ...newMessages[lastMsgIndex],
             content: newMessages[lastMsgIndex].content + chunk,
           };
 
-          // Replace the old message with the new copy
           newMessages[lastMsgIndex] = updatedLastMsg;
           
           return newMessages;
@@ -77,7 +73,7 @@ const ChatbotPage = () => {
   return (
     <div style={styles.pageContainer}>
       <style>{`
-        /* Streamlit-style blinking cursor */
+
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
         .cursor {
           display: inline-block;
@@ -88,7 +84,7 @@ const ChatbotPage = () => {
           animation: blink 1s step-end infinite;
           vertical-align: text-bottom;
         }
-        /* Markdown Styles */
+
         .markdown-body p { margin: 5px 0; }
         .markdown-body pre { border-radius: 8px; overflow: hidden; }
       `}</style>
@@ -99,14 +95,13 @@ const ChatbotPage = () => {
         <div style={styles.messagesArea}>
           {messages.map((msg, index) => (
             <div key={index} style={msg.role === "user" ? styles.userRow : styles.aiRow}>
-              
-              {/* Message Bubble */}
+
               <div style={msg.role === "user" ? styles.userBubble : styles.aiBubble}>
                 {msg.role === "user" ? (
-                  // User messages are just plain text
+
                   msg.content
                 ) : (
-                  // AI messages are rendered as Rich Markdown
+
                   <div className="markdown-body">
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
@@ -130,11 +125,10 @@ const ChatbotPage = () => {
                         },
                       }}
                     >
-                      {/* While streaming, we add the cursor to the end of the text temporarily */}
+
                       {msg.content + (isStreaming && index === messages.length - 1 ? " " : "")}
                     </ReactMarkdown>
-                    
-                    {/* The Cursor Element (Only shows when streaming this specific message) */}
+
                     {isStreaming && index === messages.length - 1 && (
                       <span className="cursor"></span>
                     )}
@@ -146,7 +140,6 @@ const ChatbotPage = () => {
           <div ref={chatEndRef} />
         </div>
 
-        {/* Input Area */}
         <div style={styles.inputArea}>
           <input
             type="text"
@@ -166,7 +159,6 @@ const ChatbotPage = () => {
   );
 };
 
-// --- Styles ---
 const styles = {
   pageContainer: {
     height: "100vh",

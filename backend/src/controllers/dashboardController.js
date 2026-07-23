@@ -4,21 +4,6 @@ import PostService from '../services/PostService.js';
 import ConnectionService from '../services/ConnectionService.js';
 import UserService from '../services/UserService.js';
 
-/**
- * dashboardController — Thin HTTP adapter layer.
- *
- * SOLID applied:
- *  - SRP : controller only handles HTTP concerns (parse → delegate → respond → error).
- *  - DIP : depends on service abstractions, not concrete DB/cache implementations.
- *
- * All business logic lives in:
- *  - PostService       (posts, likes, comments)
- *  - ConnectionService (network, invites, discover)
- *  - UserService       (profile, suggestions)
- */
-
-// ─── POSTS ────────────────────────────────────────────────────────────────────
-
 export const createPost = asyncHandler(async (req, res, next) => {
   try {
     const post = await PostService.createPost({
@@ -63,8 +48,6 @@ export const addComment = asyncHandler(async (req, res, next) => {
   }
 });
 
-// ─── NETWORK / CONNECTIONS ────────────────────────────────────────────────────
-
 export const sendConnectionRequest = asyncHandler(async (req, res, next) => {
   try {
     const result = await ConnectionService.sendRequest(req.user._id, req.body.receiverId);
@@ -96,8 +79,6 @@ export const getDiscoverUsers = asyncHandler(async (req, res, next) => {
   const users = await ConnectionService.getDiscoverUsers(req.user._id.toString());
   res.json(users);
 });
-
-// ─── USER PROFILE ─────────────────────────────────────────────────────────────
 
 export const getUserByUsername = asyncHandler(async (req, res, next) => {
   try {

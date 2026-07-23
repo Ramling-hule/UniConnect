@@ -5,8 +5,6 @@ import app from './app.js';
 import { env } from './config/env.js';
 import { registerSocketHandlers } from './socket/index.js';
 import logger from './utils/logger.js';
-
-// `env` module loads `.env` once and validates required variables.
 connectDB();
 
 const server = http.createServer(app);
@@ -22,8 +20,6 @@ registerSocketHandlers(io);
 
 const PORT = env.port || 5002;
 server.listen(PORT, () => logger.info(`Server running on port ${PORT}`, { port: PORT, env: env.nodeEnv }));
-
-// ─── Server-level errors (e.g. port already in use) ──────────────────────────
 server.on('error', (err) => {
   if (err?.code === 'EADDRINUSE') {
     logger.error(`Port ${PORT} is already in use. Exiting.`, {
@@ -36,17 +32,12 @@ server.on('error', (err) => {
   process.exit(1);
 });
 
-// ─── Global uncaught exception / unhandled rejection capture ─────────────────
-// These catch bugs that slipped past all try/catch and asyncHandler wrappers.
-// Log them fully, then exit so a process manager (PM2/Docker) can restart cleanly.
-
 process.on('uncaughtException', (err) => {
   logger.error('UNCAUGHT EXCEPTION — shutting down', {
     message: err.message,
     stack: err.stack,
     type: 'uncaughtException',
   });
-  // Give Winston time to flush file transports before exiting
   setTimeout(() => process.exit(1), 500);
 });
 
@@ -58,8 +49,6 @@ process.on('unhandledRejection', (reason, promise) => {
   });
   setTimeout(() => process.exit(1), 500);
 });
-
-// ─── Graceful shutdown on SIGTERM (Docker stop / PM2 graceful) ────────────────
 process.on('SIGTERM', () => {
   logger.info('SIGTERM received — closing HTTP server gracefully');
   server.close(() => {

@@ -29,14 +29,11 @@ export default function Suggestions() {
   const dispatch = useDispatch();
 
   useEffect(() => {
-    const fetchSuggestions = async () => {
-      // Safety check: Don't fetch if there is no token yet
-      // const token = localStorage.getItem('token');
+    const fetchSuggestions = async () => {
       if (!token) return;
 
       try {
-        const res = await fetch(`${API_BASE_URL}/api/dashboard/suggestions`, {
-          // 👇 2. Add the Authorization Header
+        const res = await fetch(`${API_BASE_URL}/api/dashboard/suggestions`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
@@ -50,17 +47,16 @@ export default function Suggestions() {
            if (res.status === 401) {
              dispatch(logout());
            }
-           console.error("Failed to fetch suggestions:", res.status);
         }
       } catch (err) {
-        console.error(err);
+        // Silently fail to avoid Next.js overlay
       } finally {
         setLoading(false);
       }
     };
 
     fetchSuggestions();
-  }, [token]);
+  }, [token, dispatch]);
 
   return (
     <div className={`rounded-xl p-4 border transition-colors ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>

@@ -2,20 +2,7 @@ import Post from '../models/Post.js';
 import cloudinary from '../config/cloudinary.js';
 import { getMimeInfo } from '../middlewares/upload.js';
 import AppError from '../utils/AppError.js';
-
-/**
- * PostService — Single Responsibility: Feed post lifecycle.
- *
- * Design patterns applied:
- *  - Service Layer (SRP): All post-related business logic in one place.
- *  - Facade: Wraps cloudinary upload behind a clean promise-based interface.
- */
 class PostService {
-  /**
-   * Uploads a file buffer to Cloudinary and returns the media metadata object.
-   * @param {Express.Multer.File} file
-   * @returns {Promise<object>} media metadata
-   */
   async _uploadToCloudinary(file) {
     const mimeInfo = getMimeInfo(file.mimetype);
     if (mimeInfo && file.size > mimeInfo.maxBytes) {
@@ -43,12 +30,6 @@ class PostService {
       bytes:            uploadResult.bytes,
     };
   }
-
-  /**
-   * Creates a new post with optional media.
-   * @param {{ text: string, userId: string, file?: Express.Multer.File }} params
-   * @returns {Promise<Post>}
-   */
   async createPost({ text, userId, file }) {
     let media = null;
 
@@ -68,12 +49,6 @@ class PostService {
     await newPost.populate('user', 'name institute');
     return newPost;
   }
-
-  /**
-   * Fetches a cursor-paginated list of posts.
-   * @param {{ limit: number, cursor?: string }} params
-   * @returns {Promise<{ posts: Post[], nextCursor: string|null, hasMore: boolean }>}
-   */
   async getPosts({ limit = 10, cursor } = {}) {
     let query = {};
 
@@ -105,13 +80,6 @@ class PostService {
 
     return { posts, nextCursor, hasMore };
   }
-
-  /**
-   * Toggles a like on a post.
-   * @param {string} postId
-   * @param {string} userId
-   * @returns {Promise<Array>} updated likes array
-   */
   async toggleLike(postId, userId) {
     const post = await Post.findById(postId);
     if (!post) throw new AppError('Post not found', 404);
@@ -125,13 +93,6 @@ class PostService {
     await post.save();
     return post.likes;
   }
-
-  /**
-   * Adds a comment to a post.
-   * @param {string} postId
-   * @param {{ userId: string, text: string }} comment
-   * @returns {Promise<Array>} updated comments array
-   */
   async addComment(postId, { userId, text }) {
     const post = await Post.findById(postId);
     if (!post) throw new AppError('Post not found', 404);

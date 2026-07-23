@@ -33,7 +33,8 @@ export const postSchema = z.object({
 
 export const groupSchema = z.object({
   name: z.string().min(3, "Group name must be at least 3 characters").max(50, "Group name is too long"),
-  description: z.string().min(10, "Description must be at least 10 characters").max(500, "Description is too long")
+  description: z.string().min(10, "Description must be at least 10 characters").max(500, "Description is too long"),
+  memberLimit: z.coerce.number().min(2, "Limit must be at least 2").max(1000, "Maximum limit is 1000")
 });
 
 export const checkoutSchema = z.object({
@@ -41,8 +42,6 @@ export const checkoutSchema = z.object({
   time: z.string().min(1, "Time is required"),
   notes: z.string().optional()
 });
-
-// Utility to extract first error
 export const getZodError = (error) => {
   if (error instanceof z.ZodError) {
     return error.issues[0].message;

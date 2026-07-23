@@ -14,13 +14,9 @@ import {
     deleteGroup
 } from '../controllers/groupController.js';
 
-const router = express.Router();
-
-// Multer Config (Same as uploadRoutes, needed here for Group Icon)
+const router = express.Router();
 const storage = multer.memoryStorage();
-const upload = multer({ storage });
-
-// Routes
+const upload = multer({ storage });
 router.post('/', protect, upload.single('image'), createGroup); // Create Group with Icon
 router.get('/', protect, getGroups);
 router.post('/join', protect, requestToJoinGroup);

@@ -2,73 +2,41 @@ import AppError from '../utils/AppError.js';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import MentorBusinessService from '../services/MentorBusinessService.js';
 
-/**
- * mentorController — Thin HTTP adapter layer.
- *
- * SOLID applied:
- *  - SRP : controller only handles HTTP concerns (parse → delegate → respond → error).
- *  - DIP : depends on MentorBusinessService abstraction, not Mongoose models directly.
- */
-
-// ─── ONBOARDING & PROFILE ─────────────────────────────────────────────────────
-
 export const applyMentor = asyncHandler(async (req, res, next) => {
-  try {
-    const mentor = await MentorBusinessService.applyMentor(req.user._id, req.body);
-    res.status(201).json({
-      message: 'Mentor application submitted successfully. Waiting for admin approval.',
-      mentor,
-    });
-  } catch (err) {
-    return next(err instanceof AppError ? err : new AppError(err.message, err.statusCode || 500));
-  }
+  const mentor = await MentorBusinessService.applyMentor(req.user._id, req.body);
+  res.status(201).json({
+    message: 'Mentor application submitted successfully. Waiting for admin approval.',
+    mentor,
+  });
 });
 
 export const getMentorProfile = asyncHandler(async (req, res, next) => {
-  try {
-    const mentor = await MentorBusinessService.getMentorProfile(req.user._id);
-    res.json({ mentor });
-  } catch (err) {
-    return next(err instanceof AppError ? err : new AppError(err.message, err.statusCode || 404));
-  }
+  const mentor = await MentorBusinessService.getMentorProfile(req.user._id);
+  res.json({ mentor });
 });
 
 export const updateMentorProfile = asyncHandler(async (req, res, next) => {
-  try {
-    const mentor = await MentorBusinessService.updateMentorProfile(req.user._id, req.body);
-    res.json({ mentor });
-  } catch (err) {
-    return next(err instanceof AppError ? err : new AppError(err.message, err.statusCode || 500));
-  }
+  const mentor = await MentorBusinessService.updateMentorProfile(req.user._id, req.body);
+  res.json({ message: 'Profile updated successfully', mentor });
 });
 
-// ─── SERVICES (OFFERINGS) ─────────────────────────────────────────────────────
-
-export const createService = asyncHandler(async (req, res, next) => {
-  try {
-    const service = await MentorBusinessService.createService(req.user._id, req.body);
-    res.status(201).json({ service });
-  } catch (err) {
-    return next(err instanceof AppError ? err : new AppError(err.message, err.statusCode || 500));
-  }
+export const addService = asyncHandler(async (req, res, next) => {
+  const service = await MentorBusinessService.addService(req.user._id, req.body);
+  res.status(201).json({ message: 'Service added successfully', service });
 });
 
 export const updateService = asyncHandler(async (req, res, next) => {
-  try {
-    const service = await MentorBusinessService.updateService(req.params.id, req.body);
-    res.json({ service });
-  } catch (err) {
-    return next(err instanceof AppError ? err : new AppError(err.message, err.statusCode || 500));
-  }
+  const service = await MentorBusinessService.updateService(
+    req.params.serviceId,
+    req.user._id,
+    req.body
+  );
+  res.json({ message: 'Service updated successfully', service });
 });
 
 export const deleteService = asyncHandler(async (req, res, next) => {
-  try {
-    await MentorBusinessService.deleteService(req.params.id);
-    res.json({ message: 'Service deleted successfully' });
-  } catch (err) {
-    return next(err instanceof AppError ? err : new AppError(err.message, err.statusCode || 500));
-  }
+  await MentorBusinessService.deleteService(req.params.serviceId, req.user._id);
+  res.json({ message: 'Service deleted successfully' });
 });
 
 export const getMentorServices = asyncHandler(async (req, res, next) => {
@@ -76,27 +44,16 @@ export const getMentorServices = asyncHandler(async (req, res, next) => {
   res.json({ services });
 });
 
-// ─── AVAILABILITY ─────────────────────────────────────────────────────────────
-
-export const updateAvailability = asyncHandler(async (req, res, next) => {
-  try {
-    const availability = await MentorBusinessService.updateAvailability(req.user._id, req.body);
-    res.json({ availability });
-  } catch (err) {
-    return next(err instanceof AppError ? err : new AppError(err.message, err.statusCode || 500));
-  }
+export const setAvailability = asyncHandler(async (req, res, next) => {
+  const availability = await MentorBusinessService.setAvailability(req.user._id, req.body);
+  res.json({ message: 'Availability updated successfully', availability });
 });
 
 export const getAvailability = asyncHandler(async (req, res, next) => {
-  try {
-    const availability = await MentorBusinessService.getAvailability(req.params.id);
-    res.json({ availability });
-  } catch (err) {
-    return next(err instanceof AppError ? err : new AppError(err.message, err.statusCode || 404));
-  }
+  const mentorId = req.params.mentorId || req.user._id;
+  const availability = await MentorBusinessService.getAvailability(mentorId);
+  res.json({ availability });
 });
-
-// ─── PUBLIC DISCOVERY ─────────────────────────────────────────────────────────
 
 export const getMentors = asyncHandler(async (req, res, next) => {
   const mentors = await MentorBusinessService.getMentors(req.query);
@@ -104,21 +61,11 @@ export const getMentors = asyncHandler(async (req, res, next) => {
 });
 
 export const getMentorDetails = asyncHandler(async (req, res, next) => {
-  try {
-    const mentor = await MentorBusinessService.getMentorDetails(req.params.id);
-    res.json({ mentor });
-  } catch (err) {
-    return next(err instanceof AppError ? err : new AppError(err.message, err.statusCode || 404));
-  }
+  const mentor = await MentorBusinessService.getMentorDetails(req.params.id);
+  res.json({ mentor });
 });
 
-// ─── DASHBOARD ANALYTICS ──────────────────────────────────────────────────────
-
 export const getMentorDashboard = asyncHandler(async (req, res, next) => {
-  try {
-    const data = await MentorBusinessService.getMentorDashboard(req.user._id);
-    res.json(data);
-  } catch (err) {
-    return next(err instanceof AppError ? err : new AppError(err.message, err.statusCode || 500));
-  }
+  const data = await MentorBusinessService.getMentorDashboard(req.user._id);
+  res.json(data);
 });

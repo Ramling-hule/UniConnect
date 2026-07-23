@@ -7,8 +7,6 @@ import {
 import { useSelector } from "react-redux";
 import { API_BASE_URL } from "@/utils/config";
 import { postSchema, getZodError } from "@/utils/schemas";
-
-/* ─── Per-type config ─────────────────────────────────── */
 const MEDIA_CONFIG = {
   image: {
     accept:     "image/jpeg,image/jpg,image/png,image/gif,image/webp",
@@ -49,8 +47,6 @@ function formatBytes(bytes) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
-
-/* ─── Preview component ───────────────────────────────── */
 function MediaPreview({ file, onRemove, isDark }) {
   const objectUrl = React.useMemo(() => URL.createObjectURL(file), [file]);
   const [textContent, setTextContent] = React.useState(null);
@@ -77,7 +73,6 @@ function MediaPreview({ file, onRemove, isDark }) {
         background: isDark ? "#0D1526" : "#F8FAFF",
       }}
     >
-      {/* Remove button */}
       <button
         onClick={onRemove}
         className="absolute top-2 right-2 z-10 w-7 h-7 rounded-full flex items-center justify-center text-white transition-all hover:scale-110"
@@ -145,8 +140,6 @@ function MediaPreview({ file, onRemove, isDark }) {
     </div>
   );
 }
-
-/* ─── Main component ──────────────────────────────────── */
 export default function CreatePostModal({ isOpen, onClose, onPostCreated }) {
   const { isDark } = useSelector((state) => state.theme);
   const { user }   = useSelector((state) => state.auth);
@@ -165,15 +158,11 @@ export default function CreatePostModal({ isOpen, onClose, onPostCreated }) {
   };
 
   if (!isOpen) return null;
-
-  /* ─── Colour tokens ─── */
   const surface     = isDark ? "#0D1526"  : "#FFFFFF";
   const border      = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)";
   const textPrimary = isDark ? "#E8EFF8"  : "#0F172A";
   const textSecondary = isDark ? "#6B7FA3" : "#64748B";
   const inputBg     = isDark ? "#060B18"  : "#F8FAFF";
-
-  /* ─── File picker ─── */
   const handleFileChange = (type, e) => {
     setError("");
     const file = e.target.files?.[0];
@@ -186,11 +175,8 @@ export default function CreatePostModal({ isOpen, onClose, onPostCreated }) {
       return;
     }
     setMediaFile(file);
-    // Reset the input so the same file can be re-selected after removal
     e.target.value = "";
   };
-
-  /* ─── Submit ─── */
   const handlePostSubmit = async (e) => {
     e?.preventDefault();
     setError("");
@@ -218,8 +204,6 @@ export default function CreatePostModal({ isOpen, onClose, onPostCreated }) {
       formData.append("userId", currentUserId);
       formData.append("text", text);
       if (mediaFile) formData.append("file", mediaFile);
-
-      // Use XMLHttpRequest for upload progress tracking
       const newPost = await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open("POST", `${API_BASE_URL}/api/dashboard/posts`);
@@ -262,7 +246,6 @@ export default function CreatePostModal({ isOpen, onClose, onPostCreated }) {
         className="w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden"
         style={{ background: surface, border: `1px solid ${border}` }}
       >
-        {/* Header */}
         <div
           className="flex items-center justify-between px-5 py-4"
           style={{ borderBottom: `1px solid ${border}` }}
@@ -287,8 +270,6 @@ export default function CreatePostModal({ isOpen, onClose, onPostCreated }) {
             <X size={18} />
           </button>
         </div>
-
-        {/* Body */}
         <div className="p-5">
           <textarea
             placeholder="What do you want to share?"
@@ -301,8 +282,6 @@ export default function CreatePostModal({ isOpen, onClose, onPostCreated }) {
             value={text}
             onChange={(e) => setText(e.target.value)}
           />
-
-          {/* Media preview */}
           {mediaFile && (
             <MediaPreview
               file={mediaFile}
@@ -310,8 +289,6 @@ export default function CreatePostModal({ isOpen, onClose, onPostCreated }) {
               isDark={isDark}
             />
           )}
-
-          {/* Error */}
           {error && (
             <div
               className="flex items-start gap-2 p-3 rounded-xl text-sm mb-3"
@@ -321,8 +298,6 @@ export default function CreatePostModal({ isOpen, onClose, onPostCreated }) {
               {error}
             </div>
           )}
-
-          {/* Upload progress */}
           {loading && uploadPct > 0 && uploadPct < 100 && (
             <div className="mb-3">
               <div className="flex justify-between text-xs mb-1" style={{ color: textSecondary }}>
@@ -344,13 +319,10 @@ export default function CreatePostModal({ isOpen, onClose, onPostCreated }) {
             </div>
           )}
         </div>
-
-        {/* Footer */}
         <div
           className="px-5 py-4 flex items-center justify-between"
           style={{ borderTop: `1px solid ${border}` }}
         >
-          {/* Attachment buttons */}
           <div className="flex items-center gap-1">
             {Object.entries(MEDIA_CONFIG).map(([type, config]) => {
               const Icon = config.icon;
@@ -378,8 +350,6 @@ export default function CreatePostModal({ isOpen, onClose, onPostCreated }) {
               );
             })}
           </div>
-
-          {/* Post button */}
           <button
             onClick={handlePostSubmit}
             disabled={loading || (!text.trim() && !mediaFile)}

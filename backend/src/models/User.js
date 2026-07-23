@@ -23,35 +23,56 @@ const userSchema = new mongoose.Schema(
     skills: [{ type: String }],
     experience: [{ type: mongoose.Schema.Types.Mixed }],
     education: [{ type: mongoose.Schema.Types.Mixed }],
+    codingProfiles: {
+      leetcode: { type: String, default: "" },
+      codeforces: { type: String, default: "" },
+      codechef: { type: String, default: "" },
+      atcoder: { type: String, default: "" },
+      github: { type: String, default: "" },
+      hackerrank: { type: String, default: "" },
+      geeksforgeeks: { type: String, default: "" },
+    },
+    portfolio: { type: String, default: "" },
+    resume: { type: String, default: "" },
+    linkedin: { type: String, default: "" },
+    personalWebsite: { type: String, default: "" },
+    techStack: {
+      languages: [{ type: String }],
+      frameworks: [{ type: String }],
+      databases: [{ type: String }],
+      cloud: [{ type: String }],
+      ai: [{ type: String }],
+      devOps: [{ type: String }],
+    },
+    achievements: {
+      hackathonWins: [{ type: String }],
+      contestRatings: [{ type: String }],
+      certifications: [{ type: String }],
+      research: [{ type: String }],
+      openSource: [{ type: String }],
+    },
+    recentPosts: [{ type: mongoose.Schema.Types.ObjectId, ref: "Post" }],
+    pinnedProjects: [{ type: mongoose.Schema.Types.Mixed }],
+    portfolioGallery: [{ type: String }],
+    availability: { type: String, default: "Available" },
+    preferredRoles: [{ type: String }], // e.g. Backend, Frontend, AI
     openToWork: { type: Boolean, default: false },
     openToCompete: { type: Boolean, default: false },
     visibility: { type: String, enum: ['PUBLIC', 'PRIVATE', 'CONNECTIONS_ONLY'], default: 'PUBLIC' },
     isOrganizer: { type: Boolean, default: false }, // Hackathon organizer permission flag
     following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
     instituteName: { type: String },
-
-    // Upgraded Security Verification Fields
     verificationCode: { type: String }, // Keep for backward compatibility
     verificationCodeExpires: { type: Date }, // Keep for backward compatibility
     verificationOtpHash: { type: String },
     verificationOtpExpires: { type: Date },
     verificationAttempts: { type: Number, default: 0 },
-
-    // Password Reset
     passwordResetTokenHash: { type: String },
     passwordResetExpires: { type: Date },
-
-    // Lockout Protection
     failedLoginAttempts: { type: Number, default: 0 },
     lockedUntil: { type: Date },
-
-    // Token Versioning
     tokenVersion: { type: Number, default: 1 },
-
-    // Google Auth
     googleId: { type: String, unique: true, sparse: true },
-
-    // Multi-Factor Authentication
     mfaEnabled: { type: Boolean, default: false },
     mfaSecret: { type: String },
     tempMfaToken: { type: String }
@@ -64,10 +85,7 @@ userSchema.index({ passwordResetTokenHash: 1 }, { sparse: true });
 
 
 userSchema.pre("save", async function () {
-  // If password is not modified, simply return (exits the function)
   if (!this.isModified("password")) return;
-
-  // Hash the password
   const salt = await bcrypt.genSalt(10);
   this.password = await bcrypt.hash(this.password, salt);
 });

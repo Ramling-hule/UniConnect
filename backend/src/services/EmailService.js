@@ -11,9 +11,6 @@ class EmailService {
         pass: env.emailPass,
       },
     });
-
-    // Verify SMTP connection on startup so misconfigured credentials
-    // are caught immediately rather than at the moment a user registers.
     this.transporter.verify((error) => {
       if (error) {
         logger.error("EmailService: SMTP connection failed — emails will NOT send", {
@@ -40,7 +37,6 @@ class EmailService {
       });
       logger.info("Email sent", { to, subject, messageId: info.messageId });
     } catch (error) {
-      // Log the REAL nodemailer error — not just the generic message
       logger.error("EmailService: Failed to send email", {
         to,
         subject,
@@ -50,8 +46,6 @@ class EmailService {
         responseCode: error.responseCode,
         response   : error.response,   // Full SMTP server response
       });
-
-      // Throw a clean AppError-compatible error that surfaces in the API response
       const friendly = new Error("Email sending failed");
       friendly.status = 503;
       friendly.cause  = error; // Preserve original for deeper debugging

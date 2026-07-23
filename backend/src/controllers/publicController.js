@@ -1,14 +1,3 @@
-/**
- * publicController.js
- *
- * Deliberately narrow public API layer.
- *
- * Security invariants (verified by security checklist):
- *  - No req.session / req.user access anywhere in this file.
- *  - All data returned through allow-list serializers — NEVER raw Mongoose docs.
- *  - Private resources excluded at the QUERY level (not filtered after the fact).
- *  - Redis caching on every route with appropriate TTLs.
- */
 
 import User       from '../models/User.js';
 import Post       from '../models/Post.js';
@@ -24,8 +13,6 @@ import {
   serializePublicGroup,
 } from '../lib/serializers/public.serializers.js';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 const MAX_LIMIT = 50;
 
 function parsePagination(query) {
@@ -34,8 +21,6 @@ function parsePagination(query) {
   const skip  = (page - 1) * limit;
   return { page, limit, skip };
 }
-
-// ─── Public Feed ──────────────────────────────────────────────────────────────
 
 export const getPublicFeed = async (req, res) => {
   try {
@@ -66,8 +51,6 @@ export const getPublicFeed = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
-
-// ─── Public Mentors ───────────────────────────────────────────────────────────
 
 export const getPublicMentors = async (req, res) => {
   try {
@@ -106,16 +89,32 @@ export const getPublicMentorByUsername = async (req, res) => {
 
     const cached = await CacheService.get(cacheKey);
     if (cached) return res.status(200).json(cached);
-
-    // Find mentor whose linked User has this username
-    const user = await User.findOne({ username, visibility: 'PUBLIC' }).lean();
+    const user = await User.findOne({ username: new RegExp(`^${username}$`, 'i') }).lean();
     if (!user) return res.status(404).json({ message: 'Mentor not found' });
 
-    const mentor = await Mentor.findOne({ user: user._id, status: 'approved', isApproved: true })
+    let mentor = await Mentor.findOne({ user: user._id, status: 'approved', isApproved: true })
       .populate('user', 'name username profilePicture headline instituteName')
       .lean();
 
-    if (!mentor) return res.status(404).json({ message: 'Mentor not found or not approved' });
+    if (!mentor) {
+      // Fallback for regular users so they can be viewed on Mentor pages
+      mentor = {
+        _id: user._id,
+        user: user,
+        headline: user.headline || 'Member',
+        about: user.about || 'No description provided.',
+        company: 'N/A',
+        role: user.role,
+        yearsOfExperience: 0,
+        skills: user.skills || [],
+        languages: ['English'],
+        isApproved: true,
+        status: 'approved',
+        totalSessions: 0,
+        averageRating: 0,
+        totalReviews: 0,
+      };
+    }
 
     const payload = serializePublicMentor(mentor);
     await CacheService.set(cacheKey, payload, 120);
@@ -126,8 +125,6 @@ export const getPublicMentorByUsername = async (req, res) => {
   }
 };
 
-// ─── Public Hackathons ────────────────────────────────────────────────────────
-
 export const getPublicHackathons = async (req, res) => {
   try {
     const { page, limit, skip } = parsePagination(req.query);
@@ -135,8 +132,6 @@ export const getPublicHackathons = async (req, res) => {
 
     const cached = await CacheService.get(cacheKey);
     if (cached) return res.status(200).json(cached);
-
-    // Only published or ongoing hackathons that are publicly visible and not deleted
     const query = {
       status:    { $in: ['published', 'ongoing'] },
       visibility: 'public',
@@ -160,8 +155,8 @@ export const getPublicHackathons = async (req, res) => {
     await CacheService.set(cacheKey, payload, 120);
     res.status(200).json(payload);
   } catch (err) {
-    console.error('[public/hackathons]', err.message);
-    res.status(500).json({ message: 'Server error' });
+    console.error('[public/hackathons]', err.stack);
+    res.status(500).json({ message: 'Server error', err: err.message, stack: err.stack });
   }
 };
 
@@ -193,8 +188,6 @@ export const getPublicHackathonBySlug = async (req, res) => {
   }
 };
 
-// ─── Public Profile ───────────────────────────────────────────────────────────
-
 export const getPublicProfile = async (req, res) => {
   try {
     const { username } = req.params;
@@ -203,7 +196,7 @@ export const getPublicProfile = async (req, res) => {
     const cached = await CacheService.get(cacheKey);
     if (cached) return res.status(200).json(cached);
 
-    const user = await User.findOne({ username, visibility: 'PUBLIC' }).lean();
+    const user = await User.findOne({ username: new RegExp(`^${username}$`, 'i') }).lean();
     if (!user) return res.status(404).json({ message: 'User not found or is private' });
 
     const payload = serializePublicUser(user);
@@ -214,8 +207,6 @@ export const getPublicProfile = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
-
-// ─── Public Post ──────────────────────────────────────────────────────────────
 
 export const getPublicPost = async (req, res) => {
   try {
@@ -240,8 +231,6 @@ export const getPublicPost = async (req, res) => {
   }
 };
 
-// ─── Public Group ─────────────────────────────────────────────────────────────
-
 export const getPublicGroup = async (req, res) => {
   try {
     const { slug } = req.params;
@@ -249,8 +238,6 @@ export const getPublicGroup = async (req, res) => {
 
     const cached = await CacheService.get(cacheKey);
     if (cached) return res.status(200).json(cached);
-
-    // Groups don't have a slug — use _id as the identifier
     const group = await Group.findOne({ _id: slug, privacy: 'public' }).lean();
     if (!group) return res.status(404).json({ message: 'Group not found or is private' });
 
@@ -262,8 +249,6 @@ export const getPublicGroup = async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 };
-
-// ─── Sitemap Data ─────────────────────────────────────────────────────────────
 
 export const getSitemapData = async (req, res) => {
   try {
@@ -290,6 +275,52 @@ export const getSitemapData = async (req, res) => {
     res.status(200).json(payload);
   } catch (err) {
     console.error('[public/sitemap]', err.message);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+export const getPublicDiscover = async (req, res) => {
+  try {
+    const cacheKey = `public:discover`;
+    const cached = await CacheService.get(cacheKey);
+    if (cached) return res.status(200).json(cached);
+
+    const users = await User.find({ visibility: 'PUBLIC' })
+      .select('name institute headline profilePicture')
+      .limit(10)
+      .lean();
+
+    const mentors = await Mentor.find({ status: 'approved', isApproved: true })
+      .populate('user', 'name institute headline profilePicture')
+      .limit(10)
+      .lean();
+
+    const formattedUsers = users.map((u) => ({
+      _id: u._id,
+      name: u.name,
+      institute: u.institute,
+      headline: u.headline,
+      profilePicture: u.profilePicture,
+      status: 'none',
+      isMentor: false
+    }));
+
+    const formattedMentors = mentors.filter(m => m.user).map((m) => ({
+      _id: m.user._id,
+      name: m.user.name,
+      institute: m.user.institute,
+      headline: m.user.headline || m.headline,
+      profilePicture: m.user.profilePicture,
+      status: 'none',
+      isMentor: true
+    }));
+
+    const combined = [...formattedUsers, ...formattedMentors].sort(() => Math.random() - 0.5);
+
+    await CacheService.set(cacheKey, combined, 120);
+    res.status(200).json(combined);
+  } catch (err) {
+    console.error('[public/discover]', err.message);
     res.status(500).json({ message: 'Server error' });
   }
 };

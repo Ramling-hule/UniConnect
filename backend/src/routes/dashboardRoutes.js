@@ -14,17 +14,13 @@ import {
 const router = express.Router();
 
 router.get('/posts', getPosts);
-router.post('/posts', upload.single('file'), createPost);
-
-// Now these will work because they are imported above
+router.post('/posts', upload.single('file'), createPost);
 router.put('/posts/:id/like', toggleLike);
 router.post('/posts/:id/comment', addComment);
 router.get('/network', protect, getNetwork);
 router.post('/network/respond', protect, respondToInvite);
 router.get('/suggestions', protect, getSuggestions);
-router.get('/discover', protect, getDiscoverUsers);
-
-// New Route for sending requests
+router.get('/discover', protect, getDiscoverUsers);
 router.post('/connect', protect, sendConnectionRequest);
 router.get('/u/:username', protect, getUserByUsername);
 router.put('/user/profile', protect, updateProfile);

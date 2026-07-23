@@ -34,9 +34,7 @@ export default function ProfileActivity({ posts, isOwnProfile, onDeletePost, cur
       ) : (
         <div className="space-y-4">
           {posts.map((post) => (
-            <div key={post._id} className="group relative p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-              
-              {/* Content Preview */}
+            <div key={post._id} className="group relative p-4 bg-slate-50 dark:bg-slate-800/50 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
               <Link href={`/post/${post._id}`} className="block mb-2">
                  <p className="text-sm text-slate-700 dark:text-slate-300 line-clamp-2">
                     {post.description || "Shared an image"}
@@ -46,16 +44,12 @@ export default function ProfileActivity({ posts, isOwnProfile, onDeletePost, cur
                         <img src={post.image} alt="Post" className="w-full h-full object-cover" />
                     </div>
                  )}
-              </Link>
-
-              {/* Stats Footer */}
+              </Link>
               <div className="flex items-center gap-4 text-xs text-slate-500">
                  <span className="flex items-center gap-1"><Heart size={12}/> {post.likes?.length || 0}</span>
                  <span className="flex items-center gap-1"><MessageSquare size={12}/> {post.comments?.length || 0}</span>
                  <span className="ml-auto">{new Date(post.createdAt).toLocaleDateString()}</span>
-              </div>
-
-              {/* Edit/Delete Actions (Only visible to owner) */}
+              </div>
               {isOwnProfile && (
                 <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1 bg-white dark:bg-slate-900 p-1 rounded-lg shadow-sm">
                    <Link href={`/edit-post/${post._id}`}>

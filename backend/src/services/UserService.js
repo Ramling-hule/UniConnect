@@ -2,17 +2,7 @@ import User from '../models/User.js';
 import redisClient from '../config/redis.js';
 import logger from '../utils/logger.js';
 import AppError from '../utils/AppError.js';
-
-/**
- * UserService — Single Responsibility: User profile management.
- *
- * Design patterns applied:
- *  - Service Layer (SRP): Profile business logic separated from HTTP concerns.
- *  - Facade: Wraps Redis cache access with graceful fallback — consumers don't
- *    need to know whether the cache is available.
- */
 class UserService {
-  // ── Cache helpers ────────────────────────────────────────────────────────────
 
   async _getCached(key) {
     try {
@@ -38,14 +28,6 @@ class UserService {
       logger.warn('Redis unavailable, skipping cache invalidation', { key, err: err.message });
     }
   }
-
-  // ── Public interface ─────────────────────────────────────────────────────────
-
-  /**
-   * Returns a user's public profile, using a 1-hour Redis cache.
-   * @param {string} username
-   * @returns {Promise<User>}
-   */
   async getUserByUsername(username) {
     const cacheKey = `profile:${username}`;
     const cached = await this._getCached(cacheKey);
@@ -57,15 +39,7 @@ class UserService {
     await this._setCached(cacheKey, user, 3600);
     return user;
   }
-
-  /**
-   * Updates a user's profile, invalidating their Redis cache entry.
-   * @param {string} userId
-   * @param {object} updates  - Fields to update (password/email/role/_id are stripped)
-   * @returns {Promise<User>}
-   */
   async updateProfile(userId, updates) {
-    // Strip protected fields — never allow clients to escalate privileges
     const safe = { ...updates };
     ['password', 'email', 'role', '_id'].forEach((k) => delete safe[k]);
 
@@ -77,12 +51,6 @@ class UserService {
 
     return user;
   }
-
-  /**
-   * Returns suggested users that the current user is not already following.
-   * @param {string} currentUserId
-   * @returns {Promise<User[]>}
-   */
   async getSuggestions(currentUserId) {
     const currentUser = await User.findById(currentUserId).select('following');
     const excludeIds = [...(currentUser?.following || []), currentUserId];

@@ -2,7 +2,6 @@ import mongoose from "mongoose";
 
 const paymentSchema = new mongoose.Schema(
   {
-    // One of booking OR hackathonRegistration must be present
     booking:                { type: mongoose.Schema.Types.ObjectId, ref: 'Booking', default: null },
     hackathonRegistration:  { type: mongoose.Schema.Types.ObjectId, ref: 'HackathonRegistration', default: null },
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },

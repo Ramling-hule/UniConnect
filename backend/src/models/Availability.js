@@ -9,8 +9,6 @@ const availabilitySchema = new mongoose.Schema(
   {
     mentor: { type: mongoose.Schema.Types.ObjectId, ref: "Mentor", required: true, unique: true },
     timezone: { type: String, required: true, default: "Asia/Kolkata" },
-    
-    // Weekly Schedule
     weeklySchedule: {
       monday: { isAvailable: { type: Boolean, default: false }, slots: [slotSchema] },
       tuesday: { isAvailable: { type: Boolean, default: false }, slots: [slotSchema] },
@@ -20,8 +18,6 @@ const availabilitySchema = new mongoose.Schema(
       saturday: { isAvailable: { type: Boolean, default: false }, slots: [slotSchema] },
       sunday: { isAvailable: { type: Boolean, default: false }, slots: [slotSchema] }
     },
-    
-    // Specific dates where mentor is NOT available
     exceptions: [{ type: Date }],
     
     bufferTime: { type: Number, default: 10 }, // Minutes between sessions

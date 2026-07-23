@@ -8,9 +8,7 @@ const connectionSchema = new mongoose.Schema({
     enum: ['pending', 'accepted', 'rejected'], 
     default: 'pending' 
   },
-}, { timestamps: true });
-
-// Ensure unique pair so A can't request B multiple times
+}, { timestamps: true });
 connectionSchema.index({ requester: 1, recipient: 1 }, { unique: true });
 
 export default mongoose.model('Connection', connectionSchema);

@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const attendanceSchema = new mongoose.Schema({
   podId: {
@@ -35,4 +35,4 @@ const attendanceSchema = new mongoose.Schema({
 
 attendanceSchema.index({ podId: 1, sessionId: 1, userId: 1 }, { unique: true });
 
-module.exports = mongoose.model('Attendance', attendanceSchema);
+export default mongoose.model('Attendance', attendanceSchema);

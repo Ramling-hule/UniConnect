@@ -12,15 +12,6 @@ import { OAuth2Client } from "google-auth-library";
 
 const googleClient = new OAuth2Client(env.googleClientId);
 const sha256 = (plainText) => crypto.createHash("sha256").update(plainText).digest("hex");
-
-/**
- * AuthService — authentication, authorisation, and session lifecycle.
- *
- * SOLID applied:
- *  - SRP  : one class owns auth logic; thin controllers handle HTTP concerns.
- *  - DRY  : `_createSession()` de-duplicates the token-generation block that was
- *           previously repeated in login(), verifyMfaLogin(), and googleSignIn().
- */
 class AuthService {
   generateAccessToken(user) {
     return jwt.sign(
@@ -37,14 +28,6 @@ class AuthService {
       }
     );
   }
-
-  /**
-   * Private helper: creates a refresh-token record + session cache entry and
-   * returns the tokens needed to respond to the client.
-   * @param {User}   user
-   * @param {object} deviceInfo  - { ipAddress, userAgent }
-   * @returns {{ accessToken, rawRefreshToken, sessionId }}
-   */
   async _createSession(user, deviceInfo) {
     const sessionId = crypto.randomUUID();
     const accessToken = this.generateAccessToken(user);
@@ -68,9 +51,6 @@ class AuthService {
 
   async register({ name, username, institute, email, password }) {
     const existingUser = await User.findOne({ email });
-
-    // BUG FIX 2: If the user exists but is NOT verified (e.g. email failed last time),
-    // resend a fresh OTP instead of blocking them with "User already exists".
     if (existingUser && existingUser.isVerified) {
       const error = new Error("An account with this email already exists.");
       error.status = 400;
@@ -81,12 +61,9 @@ class AuthService {
     const otpHash = sha256(otp);
 
     if (existingUser && !existingUser.isVerified) {
-      // Reuse existing record — just refresh the OTP and reset attempts
       existingUser.verificationOtpHash = otpHash;
       existingUser.verificationOtpExpires = Date.now() + 10 * 60 * 1000;
       existingUser.verificationAttempts = 0;
-
-      // BUG FIX 1: Send email BEFORE saving. If email fails, nothing is persisted.
       await EmailService.sendOtpEmail(email, otp);
       await existingUser.save();
       return existingUser._id;
@@ -103,9 +80,6 @@ class AuthService {
       verificationOtpExpires: Date.now() + 10 * 60 * 1000,
       verificationAttempts: 0
     });
-
-    // BUG FIX 1: Send email BEFORE saving. If email fails, no zombie user is
-    // left in the DB — the user can safely try registering again.
     await EmailService.sendOtpEmail(email, otp);
     await newUser.save();
 
@@ -154,9 +128,6 @@ class AuthService {
   async login({ email, password, deviceInfo }) {
     const user = await User.findOne({ email });
     if (!user) throw { status: 401, message: "Invalid email or password" };
-
-    // BUG FIX 3: Block unverified users with a clear, actionable message.
-    // Previously they'd fail silently or get a confusing error.
     if (!user.isVerified) {
       throw { status: 403, message: "Please verify your email before logging in. Check your inbox for the OTP." };
     }

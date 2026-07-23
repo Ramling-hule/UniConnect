@@ -2,8 +2,9 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation } from '@tanstack/react-query';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import apiClient from '@/services/apiClient';
+import { openAuthModal } from '@/redux/features/authSlice';
 import { mentorSchema, getZodError } from '@/utils/schemas';
 import toast from 'react-hot-toast';
 import { extractErrorMessage } from '@/utils/errorHelper';
@@ -11,6 +12,7 @@ import { extractErrorMessage } from '@/utils/errorHelper';
 export default function BecomeMentorPage() {
   const router = useRouter();
   const { user } = useSelector((state) => state.auth);
+  const dispatch = useDispatch();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     headline: '',
@@ -66,7 +68,7 @@ export default function BecomeMentorPage() {
       <div className="min-h-screen flex items-center justify-center bg-slate-950 text-white">
         <div className="p-8 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl">
           <h2 className="text-2xl font-bold mb-4">You need to log in first.</h2>
-          <button onClick={() => router.push('/login')} className="bg-blue-600 hover:bg-blue-500 px-6 py-2 rounded-lg font-semibold transition-all">Go to Login</button>
+          <button onClick={() => dispatch(openAuthModal("Please sign in to become a mentor."))} className="bg-blue-600 hover:bg-blue-500 px-6 py-2 rounded-lg font-semibold transition-all">Go to Login</button>
         </div>
       </div>
     );
@@ -81,7 +83,6 @@ export default function BecomeMentorPage() {
         <p className="text-center text-slate-400 mb-12 text-lg">Share your expertise. Build your brand. Get paid.</p>
 
         <div className="bg-slate-900/50 backdrop-blur-xl border border-slate-800 p-8 rounded-3xl shadow-2xl relative overflow-hidden">
-          {/* Glassmorphism background glow */}
           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1/2 bg-blue-500/10 blur-3xl rounded-full -z-10 pointer-events-none"></div>
 
           <form onSubmit={handleSubmit} className="space-y-6 relative z-10">

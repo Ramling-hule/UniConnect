@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useRef, useMemo } from "react";
+import React, { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import io from "socket.io-client";
 import EmojiPicker from "emoji-picker-react"; 
 import {
@@ -23,16 +23,12 @@ export default function GroupChatWindow({ group: initialGroup, user, onBack }) {
   const [isUploading, setIsUploading] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
-  const [joinRequests, setJoinRequests] = useState([]);
-
-  // 'media' | 'members' | null
+  const [joinRequests, setJoinRequests] = useState([]);
   const [activeSidePanel, setActiveSidePanel] = useState(null);
   const [mediaFiles, setMediaFiles] = useState({ images: [], docs: [], links: [] });
   const [mediaTab, setMediaTab] = useState("images");
 
-  const messagesEndRef = useRef(null);
-
-  // --- 1. ADMIN CHECK ---
+  const messagesEndRef = useRef(null);
   const isAdmin = useMemo(() => {
     if (!group?.admins || !user) return false;
     const myId = user.id || user._id;
@@ -40,9 +36,7 @@ export default function GroupChatWindow({ group: initialGroup, user, onBack }) {
       const adminId = typeof admin === "object" ? admin._id : admin;
       return adminId?.toString() === myId?.toString();
     });
-  }, [group.admins, user]);
-
-  // --- 2. INITIALIZATION & SOCKETS ---
+  }, [group.admins, user]);
   useEffect(() => { setGroup(initialGroup); }, [initialGroup]);
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
@@ -84,9 +78,7 @@ export default function GroupChatWindow({ group: initialGroup, user, onBack }) {
     });
 
     return () => socket.disconnect();
-  }, [group._id, user.token]);
-
-  // --- 3. HELPER FUNCTIONS ---
+  }, [group._id, user.token]);
   const extractLinks = (msgs) => {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const foundLinks = [];
@@ -103,7 +95,7 @@ export default function GroupChatWindow({ group: initialGroup, user, onBack }) {
     setMediaFiles((prev) => ({ ...prev, links: foundLinks.reverse() }));
   };
 
-  const fetchMedia = async () => {
+  const fetchMedia = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/groups/${group._id}/media`, {
         headers: { Authorization: `Bearer ${user.token}` },
@@ -113,9 +105,9 @@ export default function GroupChatWindow({ group: initialGroup, user, onBack }) {
       const docs = data.filter((m) => m.fileType === "file");
       setMediaFiles((prev) => ({ ...prev, images, docs }));
     } catch (error) { console.error(error); }
-  };
+  }, [group._id, user.token]);
 
-  useEffect(() => { if (activeSidePanel === "media") fetchMedia(); }, [activeSidePanel]);
+  useEffect(() => { if (activeSidePanel === "media") fetchMedia(); }, [activeSidePanel, fetchMedia]);
 
   const updateLocalMedia = (msg) => {
     if (msg.fileType === "image") setMediaFiles((prev) => ({ ...prev, images: [msg, ...prev.images] }));
@@ -169,7 +161,7 @@ export default function GroupChatWindow({ group: initialGroup, user, onBack }) {
     finally { setIsUploading(false); }
   };
 
-  const fetchRequests = async () => {
+  const fetchRequests = useCallback(async () => {
     try {
         const res = await fetch(`${API_BASE_URL}/api/groups/${group._id}/requests`, {
             headers: { Authorization: `Bearer ${user.token}` }
@@ -177,9 +169,9 @@ export default function GroupChatWindow({ group: initialGroup, user, onBack }) {
         const data = await res.json();
         setJoinRequests(data);
     } catch (error) { console.error("Failed to fetch requests", error); }
-  };
+  }, [group._id, user.token]);
 
-  useEffect(() => { if (showInviteModal && isAdmin) fetchRequests(); }, [showInviteModal, isAdmin]);
+  useEffect(() => { if (showInviteModal && isAdmin) fetchRequests(); }, [showInviteModal, isAdmin, fetchRequests]);
 
   const handleRequestAction = async (requesterId, action) => {
       try {
@@ -196,9 +188,7 @@ export default function GroupChatWindow({ group: initialGroup, user, onBack }) {
               } else toast.success("Rejected");
           }
       } catch (error) { toast.error("Action failed"); }
-  };
-
-  // --- RENDERERS ---
+  };
   const handleDownload = (url, filename) => {
     const link = document.createElement("a"); link.href = url; link.download = filename || "download";
     link.target = "_blank"; link.rel = "noopener noreferrer";
@@ -267,14 +257,9 @@ export default function GroupChatWindow({ group: initialGroup, user, onBack }) {
     });
   };
 
-  return (
-    // 👇 FIX 1: Use 100dvh for mobile browsers
-    <div className="flex flex-col h-[100dvh] bg-white dark:bg-slate-900 overflow-hidden relative">
-      
-      {/* === LEFT SIDE: CHAT === */}
-      <div className={`flex-1 flex flex-col h-full relative ${activeSidePanel ? "hidden md:flex" : "flex"}`}>
-        
-        {/* 👇 FIX 2: Header is now STICKY and contains Description */}
+  return (
+    <div className="flex flex-col h-[100dvh] bg-white dark:bg-slate-900 overflow-hidden relative">
+      <div className={`flex-1 flex flex-col h-full relative ${activeSidePanel ? "hidden md:flex" : "flex"}`}>
         <div className="sticky top-0 z-50 p-4 border-b dark:border-slate-800 flex justify-between items-center bg-slate-50/90 dark:bg-slate-950/90 backdrop-blur-md">
           <div className="flex items-center gap-3 overflow-hidden">
             <button onClick={onBack} className="md:hidden p-2 flex-shrink-0"><ArrowLeft /></button>
@@ -282,8 +267,7 @@ export default function GroupChatWindow({ group: initialGroup, user, onBack }) {
               {group.image ? <img src={group.image} className="w-full h-full object-cover" alt="Group Icon" /> : <span className="text-slate-500 font-bold">{group.name?.[0]}</span>}
             </div>
             <div className="min-w-0">
-                <h3 className="font-bold dark:text-white truncate">{group.name}</h3>
-                {/* 👇 Added Description Here */}
+                <h3 className="font-bold dark:text-white truncate">{group.name}</h3>
                 <p className="text-xs text-slate-500 truncate">
                     {group.description || `${group.members?.length || 0} members`}
                 </p>
@@ -294,15 +278,11 @@ export default function GroupChatWindow({ group: initialGroup, user, onBack }) {
             <button onClick={() => setActiveSidePanel(activeSidePanel === "members" ? null : "members")} className={`p-2 rounded-full transition ${activeSidePanel === "members" ? "bg-brand-primary text-white" : "hover:bg-slate-200 dark:hover:bg-slate-800 dark:text-white"}`} title="Members"><Users size={18} /></button>
             <button onClick={() => setShowInviteModal(true)} className="flex items-center gap-2 text-xs bg-slate-200 dark:bg-slate-800 px-3 py-2 rounded-full dark:text-white hover:bg-slate-300 transition ml-2"><UserPlus size={14} /><span className="hidden sm:inline">Invite</span></button>
           </div>
-        </div>
-
-        {/* Messages */}
+        </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
           {renderMessagesWithDates()}
           <div ref={messagesEndRef} />
-        </div>
-
-        {/* Input */}
+        </div>
         <div className="p-4 border-t dark:border-slate-800 bg-white dark:bg-slate-900 relative">
           {showEmojiPicker && (
             <div className="absolute bottom-20 left-4 z-10 shadow-xl rounded-xl">
@@ -329,9 +309,7 @@ export default function GroupChatWindow({ group: initialGroup, user, onBack }) {
             </button>
           </form>
         </div>
-      </div>
-
-      {/* === RIGHT SIDE: SMART SIDE PANEL === */}
+      </div>
       {activeSidePanel && (
         <div className="w-full md:w-80 bg-slate-50 dark:bg-slate-950 border-l dark:border-slate-800 h-full flex flex-col animate-in slide-in-from-right duration-300">
           <div className="p-4 border-b dark:border-slate-800 flex items-center justify-between">
@@ -424,9 +402,7 @@ export default function GroupChatWindow({ group: initialGroup, user, onBack }) {
             </div>
           )}
         </div>
-      )}
-
-      {/* === INVITE MODAL (FIXED) === */}
+      )}
       {showInviteModal && (
         <div className="fixed inset-0 z-[9999] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
             <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-2xl shadow-2xl p-6 relative border dark:border-slate-800">

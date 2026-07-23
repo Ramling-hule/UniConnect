@@ -9,18 +9,6 @@ import { env } from '../config/env.js';
 import { v4 as uuidv4 } from 'uuid';
 import { asyncHandler } from '../utils/asyncHandler.js';
 import AppError from '../utils/AppError.js';
-
-/**
- * groupController — Thin HTTP adapter layer.
- *
- * SOLID applied:
- *  - SRP : controller handles HTTP concerns only.
- *  - DIP : cache access goes through CacheService facade — no direct redisClient calls.
- *  - OCP : cache strategy (Redis vs. in-memory) can be changed in CacheService without
- *          touching this controller.
- */
-
-// Cache TTLs (seconds)
 const TTL = {
   groupsList:    120,
   group:        1800,
@@ -33,10 +21,8 @@ const formatUrl = (url) => {
   if (url.startsWith('http') || url.startsWith('https')) return url;
   return `${env.baseUrl}/${url}`;
 };
-
-// ── CREATE GROUP ──────────────────────────────────────────────────────────────
 export const createGroup = asyncHandler(async (req, res, next) => {
-  const { name, description, privacy } = req.body;
+  const { name, description, privacy, memberLimit } = req.body;
   const creatorId = req.user._id;
   let imageUrl = '';
 
@@ -60,6 +46,7 @@ export const createGroup = asyncHandler(async (req, res, next) => {
 
   const newGroup = await Group.create({
     name, description, privacy, institute,
+    memberLimit: memberLimit || 50,
     admins: [creatorId], members: [creatorId],
     image: imageUrl,
     inviteCode: uuidv4().slice(0, 8),
@@ -76,8 +63,6 @@ export const createGroup = asyncHandler(async (req, res, next) => {
   await CacheService.del(`groups:list:${creatorId}`);
   res.status(201).json(formattedGroup);
 });
-
-// ── GET GROUPS LIST ───────────────────────────────────────────────────────────
 export const getGroups = asyncHandler(async (req, res, next) => {
   const userId = req.user._id;
   const cacheKey = `groups:list:${userId}`;
@@ -111,8 +96,6 @@ export const getGroups = asyncHandler(async (req, res, next) => {
   await CacheService.set(cacheKey, formattedGroups, TTL.groupsList);
   res.json(formattedGroups);
 });
-
-// ── GET SINGLE GROUP ──────────────────────────────────────────────────────────
 export const getGroupById = asyncHandler(async (req, res, next) => {
   const { id } = req.params;
 
@@ -126,8 +109,6 @@ export const getGroupById = asyncHandler(async (req, res, next) => {
   await CacheService.set(`group:${id}`, group, TTL.group);
   res.status(200).json(group);
 });
-
-// ── JOIN REQUESTS ─────────────────────────────────────────────────────────────
 export const requestToJoinGroup = asyncHandler(async (req, res, next) => {
   const { groupId } = req.body;
   const requesterId = req.user._id;
@@ -176,6 +157,9 @@ export const handleJoinRequest = asyncHandler(async (req, res, next) => {
   }
 
   if (action === 'accept') {
+    if (group.members.length >= (group.memberLimit || 50)) {
+      return next(new AppError('Group is full', 400));
+    }
     if (!group.members.includes(requesterId)) group.members.push(requesterId);
 
     const io = req.app.get('io');
@@ -214,8 +198,6 @@ export const getGroupRequests = asyncHandler(async (req, res, next) => {
   await CacheService.set(cacheKey, group.joinRequests, TTL.groupRequests);
   res.status(200).json(group.joinRequests);
 });
-
-// ── JOIN GROUP DIRECTLY ───────────────────────────────────────────────────────
 export const joinGroup = asyncHandler(async (req, res, next) => {
   const { groupId } = req.body;
   const userId = req.user._id;
@@ -227,14 +209,16 @@ export const joinGroup = asyncHandler(async (req, res, next) => {
     return next(new AppError('Already a member', 400));
   }
 
+  if (group.members.length >= (group.memberLimit || 50)) {
+    return next(new AppError('Group is full', 400));
+  }
+
   group.members.push(userId);
   await group.save();
 
   await CacheService.del(`group:${groupId}`, `groups:list:${userId}`);
   res.json({ success: true, message: 'Joined successfully' });
 });
-
-// ── CHAT MESSAGES ─────────────────────────────────────────────────────────────
 export const getGroupMessages = asyncHandler(async (req, res, next) => {
   const { groupId } = req.params;
   const cacheKey = `group_messages:${groupId}`;
@@ -254,8 +238,6 @@ export const getGroupMessages = asyncHandler(async (req, res, next) => {
   await CacheService.set(cacheKey, formattedMessages, TTL.groupMessages);
   res.json(formattedMessages);
 });
-
-// ── GET GROUP MEDIA ───────────────────────────────────────────────────────────
 export const getGroupMedia = asyncHandler(async (req, res, next) => {
   const { groupId } = req.params;
 
@@ -266,8 +248,6 @@ export const getGroupMedia = asyncHandler(async (req, res, next) => {
 
   res.json(mediaMessages);
 });
-
-// ── DELETE GROUP ──────────────────────────────────────────────────────────────
 export const deleteGroup = asyncHandler(async (req, res, next) => {
   const { groupId } = req.params;
   const userId = req.user._id;

@@ -1,88 +1,62 @@
-import { notFound } from 'next/navigation';
+"use client";
+import React, { useState, useEffect } from 'react';
+import { notFound, useParams } from 'next/navigation';
 import Link from 'next/link';
+import { Loader } from 'lucide-react';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:6001';
 
-// Server-side data fetching
-async function getProfile(username) {
-  try {
-    const res = await fetch(`${API_URL}/api/public/profile/${username}`, {
-      next: { revalidate: 60 } // ISR: revalidate every 60 seconds
-    });
-    if (!res.ok) return null;
-    return res.json();
-  } catch (error) {
-    return null;
-  }
-}
+export default function PublicProfilePage() {
+  const params = useParams();
+  const username = params?.username;
 
-// Generate Dynamic SEO Metadata
-export async function generateMetadata({ params }) {
-  const { username } = await params;
-  const profile = await getProfile(username);
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
-  if (!profile) {
-    return { title: 'Profile Not Found | ProConnect' };
-  }
+  useEffect(() => {
+    if (!username) return;
+    const fetchProfile = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`${API_URL}/api/public/profile/${username}`);
+        if (res.ok) {
+          const data = await res.json();
+          setProfile(data);
+        } else {
+          setError(true);
+        }
+      } catch (err) {
+        console.error('Failed to fetch profile:', err);
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProfile();
+  }, [username]);
 
-  const title = `${profile.name} | ${profile.headline || 'Member'} | ProConnect`;
-  const description = profile.about || `View ${profile.name}'s professional profile on ProConnect.`;
-
-  return {
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-      type: 'profile',
-      url: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/u/${username}`,
-      images: [
-        {
-          url: profile.profilePicture || '/default-avatar.png',
-          width: 200,
-          height: 200,
-          alt: `${profile.name} Profile Picture`,
-        },
-      ],
-    },
-    twitter: {
-      card: 'summary',
-      title,
-      description,
-      images: [profile.profilePicture || '/default-avatar.png'],
-    },
-  };
-}
-
-export default async function PublicProfilePage({ params }) {
-  const { username } = await params;
-  const profile = await getProfile(username);
-
-  if (!profile) {
-    notFound();
+  if (loading) {
+    return (
+      <div className="min-h-screen flex justify-center items-center">
+        <Loader className="animate-spin text-blue-600 mr-2" size={32} />
+        <span className="text-lg text-slate-500">Loading profile...</span>
+      </div>
+    );
   }
 
-  // JSON-LD Structured Data
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Person',
-    name: profile.name,
-    jobTitle: profile.headline,
-    url: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/u/${username}`,
-    image: profile.profilePicture || '/default-avatar.png',
-    description: profile.about,
-    alumniOf: profile.instituteName || undefined,
-  };
+  if (error || !profile) {
+    return (
+      <div className="text-center py-24">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Profile Not Found</h1>
+        <Link href="/discover" className="text-blue-600 mt-4 inline-block hover:underline">Return to Discover</Link>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-8 mt-16">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
-      
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden border border-gray-200 dark:border-gray-700">
-        {/* Cover Photo Area - Defaulting to a gradient for now */}
         <div className="h-48 bg-gradient-to-r from-blue-500 to-indigo-600"></div>
         
         <div className="px-6 pb-6">
@@ -110,7 +84,38 @@ export default async function PublicProfilePage({ params }) {
               </p>
             )}
           </div>
-        </div>
+        )}
+
+        {profile.availability && profile.availability !== "Not Looking" && (
+          <div className="mt-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl">
+            <h3 className="font-bold text-green-800 dark:text-green-300">Availability</h3>
+            <p className="text-green-700 dark:text-green-400 mt-1">{profile.availability}</p>
+          </div>
+        )}
+
+        {profile.codingProfiles && Object.keys(profile.codingProfiles).some(k => profile.codingProfiles[k]) && (
+          <div className="mt-8">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-3">Coding Profiles</h2>
+            <div className="flex flex-wrap gap-3">
+              {Object.entries(profile.codingProfiles).map(([platform, link]) => {
+                if (!link) return null;
+                return (
+                  <a key={platform} href={link} target="_blank" rel="noopener noreferrer" className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 capitalize text-sm font-semibold">
+                    {platform}
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {profile.portfolio && (
+          <div className="mt-6">
+            <a href={profile.portfolio} target="_blank" rel="noopener noreferrer" className="text-brand-primary hover:underline font-bold">
+              View Portfolio Website ↗
+            </a>
+          </div>
+        )}
       </div>
 
       {profile.about && (
@@ -132,8 +137,6 @@ export default async function PublicProfilePage({ params }) {
           </div>
         </div>
       )}
-
-      {/* Login Prompt Banner */}
       <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-6 text-center">
         <h3 className="text-lg font-bold text-blue-900 dark:text-blue-100">Join ProConnect to see the full profile</h3>
         <p className="text-blue-700 dark:text-blue-300 mt-2 mb-4">

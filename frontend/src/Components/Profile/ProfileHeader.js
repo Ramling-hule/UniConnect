@@ -8,8 +8,7 @@ export default function ProfileHeader({ profile, isOwnProfile, onEdit }) {
     const dispatch = useDispatch();
 
   return (
-    <div className="rounded-2xl overflow-hidden border shadow-sm bg-white dark:bg-slate-900 dark:border-slate-800">
-      {/* Banner */}
+    <div className="rounded-2xl overflow-hidden border shadow-sm bg-white dark:bg-slate-900 dark:border-slate-800">
       <div className="h-32 bg-gradient-to-r from-brand-primary to-purple-600 relative">
         {isOwnProfile && (
           <button onClick={onEdit} className="absolute top-4 right-4 bg-black/30 text-white p-2 rounded-full hover:bg-black/50 transition-all">
@@ -18,8 +17,7 @@ export default function ProfileHeader({ profile, isOwnProfile, onEdit }) {
         )}
       </div>
 
-      <div className="px-6 pb-6 relative">
-        {/* Avatar */}
+      <div className="px-6 pb-6 relative">
         <div className="-mt-12 w-24 h-24 rounded-full border-4 border-white dark:border-slate-900 bg-white dark:bg-slate-800 flex items-center justify-center text-3xl font-bold shadow-md">
           {profile.name?.[0]}
         </div>

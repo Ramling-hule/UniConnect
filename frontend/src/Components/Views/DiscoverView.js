@@ -3,63 +3,68 @@ import React, { useState, useEffect } from "react";
 import { useSelector } from "react-redux";
 import { UserPlus, Search, Loader, Clock, MessageCircle } from "lucide-react";
 import { API_BASE_URL } from "@/utils/config";
-import UserProfileModal from "@/Components/UserProfileModal"; // 1. Import Modal
+import UserProfileModal from "@/Components/UserProfileModal";
+import { openAuthModal } from "@/redux/features/authSlice";
+import { useDispatch } from "react-redux";
 
-export default function DiscoverView() {
+export default function DiscoverView({ initialUsers = [] }) {
   const { user } = useSelector((state) => state.auth);
   const { isDark } = useSelector((state) => state.theme);
+  const dispatch = useDispatch();
 
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  // 2. Add State for the selected user
+  const [users, setUsers] = useState(initialUsers);
+  const [loading, setLoading] = useState(!initialUsers.length);
   const [selectedUser, setSelectedUser] = useState(null);
 
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const token = user?.token || localStorage.getItem("token");
-        const res = await fetch(`${API_BASE_URL}/api/dashboard/discover`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const endpoint = user ? `${API_BASE_URL}/api/dashboard/discover` : `${API_BASE_URL}/api/public/discover`;
+        const token = user?.token || (typeof window !== 'undefined' ? localStorage.getItem("token") : null);
+        const headers = user || token ? { Authorization: `Bearer ${token}` } : {};
+        const res = await fetch(endpoint, { headers });
 
         const data = await res.json();
 
-        if (Array.isArray(data)) {
+        if (res.ok && Array.isArray(data)) {
           setUsers(data);
         } else {
-          console.error("API Error:", data);
-          setUsers([]);
+          setUsers(initialUsers);
         }
       } catch (err) {
-        console.error("Fetch failed", err);
-        setUsers([]);
+        setUsers(initialUsers);
       } finally {
         setLoading(false);
       }
     };
-    if (user) fetchUsers();
-  }, [user]);
+    
+    // Always fetch client-side if user auth state resolves (to get personalized status like pending/connected)
+    // or if initialUsers was empty.
+    if (user || initialUsers.length === 0) {
+      fetchUsers();
+    } else {
+      setLoading(false);
+    }
+  }, [user, initialUsers]);
 
   const handleConnect = async (receiverId) => {
-    // 1. Optimistic UI Update (Green button -> Pending)
+    if (!user) {
+      dispatch(openAuthModal("Please sign in to connect with this user."));
+      return;
+    }
     if (Array.isArray(users)) {
       setUsers((prev) =>
         prev.map((u) =>
           u._id === receiverId ? { ...u, status: "pending" } : u
         )
       );
-    }
-
-    // Also update modal state if open
+    }
     if (selectedUser && selectedUser._id === receiverId) {
       setSelectedUser((prev) => ({ ...prev, status: "pending" }));
     }
 
     try {
-      const token = user?.token || localStorage.getItem("token");
-
-      // 2. Send Connection Request
+      const token = user?.token || localStorage.getItem("token");
       const connectRes = await fetch(`${API_BASE_URL}/api/dashboard/connect`, {
         method: "POST",
         headers: {
@@ -67,9 +72,7 @@ export default function DiscoverView() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ receiverId }),
-      });
-
-      // 3. IF SUCCESSFUL -> Send Notification manually from here
+      });
       if (connectRes.ok) {
         await fetch(`${API_BASE_URL}/api/notifications`, {
           method: "POST",
@@ -86,8 +89,7 @@ export default function DiscoverView() {
         });
       }
     } catch (err) {
-      console.error("Connect failed", err);
-      // Optional: Revert UI state on error
+      console.error("Connect failed", err);
     }
   };
 
@@ -99,8 +101,7 @@ export default function DiscoverView() {
     );
 
   return (
-    <div className="space-y-6 animate-fade-up">
-      {/* Search Bar */}
+    <div className="space-y-6 animate-fade-up">
       <div
         className={`p-4 rounded-2xl border flex items-center gap-3 transition-colors ${
           isDark ? "bg-slate-900 border-slate-800" : "bg-white border-slate-200"
@@ -114,11 +115,11 @@ export default function DiscoverView() {
             isDark ? "text-white" : "text-slate-900"
           }`}
         />
-      </div>
-
-      {/* Users Grid */}
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {users?.length === 0 && !loading && (
+
+
+        {user && users?.length === 0 && !loading && (
           <p className="col-span-2 text-center text-slate-400 py-10">
             No users found to connect with.
           </p>
@@ -127,8 +128,7 @@ export default function DiscoverView() {
         {Array.isArray(users) &&
           users.map((u) => (
             <div
-              key={u._id}
-              // 3. Add Click Handler to Card
+              key={u._id}
               onClick={() => setSelectedUser(u)}
               className={`cursor-pointer p-5 rounded-2xl border shadow-sm flex items-center justify-between transition-all hover:shadow-md ${
                 isDark
@@ -153,7 +153,7 @@ export default function DiscoverView() {
                   </p>
                   <div className="flex gap-1 mt-2">
                     <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded font-medium dark:bg-blue-900/20 dark:text-blue-400">
-                      Student
+                      {u.isMentor ? "Mentor" : "Student"}
                     </span>
                   </div>
                 </div>
@@ -183,9 +183,7 @@ export default function DiscoverView() {
 
                 {(u.status === "none" || !u.status) && (
                   <button
-                    onClick={(e) => {
-                      // 4. STOP PROPAGATION (Critical!)
-                      // Prevent clicking "Connect" from opening the modal
+                    onClick={(e) => {
                       e.stopPropagation();
                       handleConnect(u._id);
                     }}
@@ -200,9 +198,7 @@ export default function DiscoverView() {
               </div>
             </div>
           ))}
-      </div>
-
-      {/* 5. Render Modal */}
+      </div>
       <UserProfileModal
         user={selectedUser}
         conn={selectedUser} // Passing the user object as connection data
