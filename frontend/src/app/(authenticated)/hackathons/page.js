@@ -1,29 +1,10 @@
+"use client";
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Trophy, Calendar, Users, Globe, Wifi, Cpu, ChevronRight } from 'lucide-react';
+import { useSearchParams } from 'next/navigation';
+import { Trophy, Calendar, Users, Globe, Wifi, Cpu, ChevronRight, Loader } from 'lucide-react';
 
-const API_URL  = process.env.NEXT_PUBLIC_API_URL  || 'http://localhost:5000';
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
-
-export const metadata = {
-  title: 'Hackathons | ProConnect',
-  description: 'Discover the latest hackathons on ProConnect. Register, form teams, and compete with top students and developers.',
-  openGraph: {
-    title: 'Hackathons | ProConnect',
-    description: 'Discover hackathons, form teams, and compete.',
-    type: 'website',
-    url: `${SITE_URL}/hackathons`,
-  },
-};
-
-async function getHackathons(page = 1) {
-  try {
-    const res = await fetch(`${API_URL}/api/public/hackathons?page=${page}&limit=12`, {
-      next: { revalidate: 120 },
-    });
-    if (!res.ok) return { hackathons: [], pagination: {} };
-    return res.json();
-  } catch { return { hackathons: [], pagination: {} }; }
-}
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:6001';
 
 const ModeIcon = ({ mode }) => {
   if (mode === 'online') return <Wifi size={13} />;
@@ -37,50 +18,60 @@ const statusColor = (status) => {
   return 'bg-slate-100 text-slate-600';
 };
 
-export default async function PublicHackathonsPage({ searchParams }) {
-  const page = parseInt((await searchParams)?.page) || 1;
-  const { hackathons, pagination } = await getHackathons(page);
+export default function PublicHackathonsPage() {
+  const searchParams = useSearchParams();
+  const page = parseInt(searchParams.get('page')) || 1;
 
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'ItemList',
-    name: 'ProConnect Hackathons',
-    numberOfItems: pagination.total ?? 0,
-    itemListElement: (hackathons ?? []).slice(0, 10).map((h, i) => ({
-      '@type': 'ListItem',
-      position: i + 1,
-      item: {
-        '@type': 'Event',
-        name: h.title,
-        url: `${SITE_URL}/hackathons/${h.slug}`,
-        startDate: h.timeline?.hackathonStart,
-        endDate:   h.timeline?.hackathonEnd,
-      },
-    })),
-  };
+  const [hackathons, setHackathons] = useState([]);
+  const [pagination, setPagination] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchHackathons = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`${API_URL}/api/public/hackathons?page=${page}&limit=12`);
+        if (res.ok) {
+          const data = await res.json();
+          setHackathons(data.hackathons || []);
+          setPagination(data.pagination || { total: 0, pages: 1 });
+        } else {
+          setHackathons([]);
+        }
+      } catch (err) {
+        console.error('Failed to fetch hackathons:', err);
+        setHackathons([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchHackathons();
+  }, [page]);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pt-16 pb-24">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-
-      <div className="max-w-7xl mx-auto px-4 md:px-8">
-        {/* Header */}
-        <div className="text-center py-16">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-orange-50 border border-orange-200 text-orange-700 mb-6">
-            <Trophy size={14} /> Live Hackathons
+    <div className="pb-10">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-6 flex justify-between items-end">
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
+              <Trophy size={24} className="text-orange-500" />
+              Discover Hackathons
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              Register, form a team, and compete in the latest hackathons across AI, Web3, and more.
+            </p>
           </div>
-          <h1 className="text-5xl font-extrabold text-slate-900 dark:text-white mb-4">Discover Hackathons</h1>
-          <p className="text-lg text-slate-500 dark:text-slate-400 max-w-xl mx-auto">
-            Register, form a team, and compete in the latest hackathons across AI, Web3, and more.
-          </p>
         </div>
 
-        {/* Grid */}
-        {hackathons && hackathons.length > 0 ? (
+        {loading ? (
+          <div className="flex justify-center py-24 text-slate-500">
+            <Loader className="animate-spin mr-2" /> Loading hackathons...
+          </div>
+        ) : hackathons && hackathons.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {hackathons.map((h) => (
               <Link
-                key={h.id}
+                key={h._id || h.id}
                 href={`/hackathons/${h.slug}`}
                 className="group bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl overflow-hidden hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
               >
@@ -117,8 +108,7 @@ export default async function PublicHackathonsPage({ searchParams }) {
         ) : (
           <div className="text-center py-24 text-slate-500">No hackathons available right now. Check back soon!</div>
         )}
-
-        {/* Pagination */}
+        
         {pagination && pagination.pages > 1 && (
           <div className="flex justify-center gap-2 mt-12">
             {Array.from({ length: pagination.pages }, (_, i) => i + 1).map(p => (
@@ -129,15 +119,6 @@ export default async function PublicHackathonsPage({ searchParams }) {
             ))}
           </div>
         )}
-
-        {/* CTA */}
-        <div className="mt-16 bg-gradient-to-r from-orange-500 to-pink-600 rounded-2xl p-10 text-center text-white">
-          <h3 className="text-2xl font-bold mb-3">Want to host a Hackathon?</h3>
-          <p className="text-orange-100 mb-6">Organizers can create and manage hackathons directly on ProConnect.</p>
-          <Link href="/login" className="inline-block px-8 py-3 bg-white text-orange-600 font-bold rounded-xl hover:bg-orange-50 transition-colors">
-            Get Organizer Access
-          </Link>
-        </div>
       </div>
     </div>
   );

@@ -57,8 +57,6 @@ export default function HackathonDashboardPage() {
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       <div className="max-w-6xl mx-auto px-4 py-10">
-
-        {/* Header */}
         <div className="flex items-start justify-between mb-10">
           <div>
             <p className="text-indigo-400 text-sm font-semibold mb-1">Organizer Dashboard</p>
@@ -79,8 +77,6 @@ export default function HackathonDashboardPage() {
             Edit Hackathon
           </Link>
         </div>
-
-        {/* Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <StatCard label="Total Registrations" value={r.total}     icon={Users}    color="indigo" />
           <StatCard label="Confirmed"            value={r.confirmed} icon={CheckCircle} color="green" />
@@ -93,8 +89,6 @@ export default function HackathonDashboardPage() {
           <StatCard label="Draft Submissions"  value={submissions.drafts} icon={FileText} color="slate" />
           <StatCard label="Pending"            value={r.pending}          icon={Calendar} color="orange" />
         </div>
-
-        {/* Registration Breakdown Bar */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-6">
           <h3 className="font-bold text-white text-lg mb-5">Registration Breakdown</h3>
           {r.total > 0 && (
@@ -119,8 +113,6 @@ export default function HackathonDashboardPage() {
             </div>
           )}
         </div>
-
-        {/* Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Link href={`/hackathons/${id}/leaderboard`} className="bg-slate-900 border border-slate-800 rounded-2xl p-5 hover:border-indigo-500/50 transition-all group">
             <Trophy className="w-8 h-8 text-amber-400 mb-3" />

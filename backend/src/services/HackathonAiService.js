@@ -5,25 +5,7 @@ import CacheKeys from '../utils/CacheKeys.js';
 import HackathonPromptBuilder from '../utils/HackathonPromptBuilder.js';
 import HackathonRepository from '../repositories/HackathonRepository.js';
 import HackathonTeam from '../models/HackathonTeam.js';
-
-/**
- * HackathonAiService — AI-powered intelligence features for the Hackathon module.
- *
- * SOLID applied:
- *  - SRP: AI feature logic is extracted from HackathonService into its own class.
- *  - DIP: Depends on AiService and HackathonPromptBuilder abstractions, not on
- *         Gemini SDK or raw prompt strings.
- *  - OCP: New AI features are new methods. HackathonPromptBuilder is extended for
- *         new prompts — zero changes to existing features.
- *
- * Design Patterns:
- *  - Builder Pattern: HackathonPromptBuilder constructs prompts.
- *  - Facade:          AiService wraps Gemini SDK complexity.
- *  - Cache-Aside:     All AI results cached to avoid redundant API calls.
- */
 class HackathonAiService {
-
-  // ─── Helper ────────────────────────────────────────────────────────────────
 
   async _callAi(prompt, cacheKey, cacheTtl = 600) {
     const cached = await CacheService.get(cacheKey);
@@ -40,8 +22,6 @@ class HackathonAiService {
     if (!hackathon) throw new AppError('Hackathon not found', 404);
     return hackathon;
   }
-
-  // ─── AI Features ───────────────────────────────────────────────────────────
 
   async getTeamSuggestions(hackathonId, userId) {
     const hackathon = await this._getHackathon(hackathonId);
@@ -66,7 +46,6 @@ class HackathonAiService {
   async getProjectIdeas(hackathonId, teamSkills = []) {
     const hackathon = await this._getHackathon(hackathonId);
     const prompt    = HackathonPromptBuilder.projectIdeas(hackathon, teamSkills);
-    // Project ideas are contextual — short cache, no userId key
     return this._callAi(prompt, `ai:project_ideas:${hackathonId}:${teamSkills.join(',')}`, 300);
   }
 

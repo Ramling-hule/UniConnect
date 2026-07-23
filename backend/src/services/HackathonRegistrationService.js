@@ -4,24 +4,7 @@ import CacheKeys from '../utils/CacheKeys.js';
 import notificationManager from './notificationService.js';
 import HackathonRepository from '../repositories/HackathonRepository.js';
 import HackathonRegistrationRepository from '../repositories/HackathonRegistrationRepository.js';
-
-/**
- * HackathonRegistrationService — Owns the full registration lifecycle.
- *
- * SOLID applied:
- *  - SRP: Registration, waitlist, and cancellation logic extracted from HackathonService.
- *  - DIP: Depends on Repository abstractions, not on Mongoose models directly.
- *  - OCP: Waitlist promotion and status-resolution are isolated methods, extendable
- *         without touching the main flow.
- *
- * Design Patterns:
- *  - Repository Pattern: All DB access via dedicated repositories.
- *  - Template Method: `_resolveRegistrationStatus` encapsulates the status-decision
- *    algorithm, making it overridable in tests.
- */
 class HackathonRegistrationService {
-
-  // ─── REGISTRATION ──────────────────────────────────────────────────────────
 
   async registerIndividual(hackathonId, userId, io) {
     const hackathon = await HackathonRepository.findById(hackathonId);
@@ -31,8 +14,6 @@ class HackathonRegistrationService {
 
     const existing = await HackathonRegistrationRepository.findByHackathonAndUser(hackathonId, userId);
     if (existing) throw new AppError('Already registered for this hackathon', 409);
-
-    // Pattern: Distributed Lock (via existing CacheService)
     const lockKey  = CacheKeys.registrationLock(hackathonId, userId);
     const acquired = await CacheService.acquireLock(lockKey, `${Date.now()}`, 10);
     if (!acquired)  throw new AppError('Registration in progress, please try again', 429);
@@ -67,8 +48,6 @@ class HackathonRegistrationService {
     }
   }
 
-  // ─── CANCELLATION ──────────────────────────────────────────────────────────
-
   async cancelRegistration(registrationId, userId) {
     const reg = await HackathonRegistrationRepository.findById(registrationId);
     if (!reg)                        throw new AppError('Registration not found', 404);
@@ -85,14 +64,6 @@ class HackathonRegistrationService {
 
     return reg;
   }
-
-  // ─── PRIVATE: Template Method ──────────────────────────────────────────────
-
-  /**
-   * Encapsulates the registration status decision algorithm.
-   * Extracted as a named method so it's independently testable and overridable.
-   * @returns {{ status: string, waitlistPosition: number|null }}
-   */
   async _resolveRegistrationStatus(hackathon, hackathonId) {
     let status = 'confirmed';
     let waitlistPosition = null;
@@ -103,19 +74,11 @@ class HackathonRegistrationService {
       status = 'waitlisted';
       waitlistPosition = waitlistCount + 1;
     }
-
-    // Approval workflow overrides capacity confirmation
     if (hackathon.approvalRequired) status = 'pending';
-    // Payment required — cannot confirm until payment is captured
     if (!hackathon.isFree) status = 'pending';
 
     return { status, waitlistPosition };
   }
-
-  /**
-   * Promotes the next waitlisted user when a confirmed registration is cancelled.
-   * Separated from cancelRegistration to satisfy SRP.
-   */
   async _handleCancellationWaitlistPromotion(hackathonId) {
     await HackathonRepository.incrementCount(hackathonId, 'registrationCount', -1);
 
@@ -127,11 +90,6 @@ class HackathonRegistrationService {
       await HackathonRepository.incrementCount(hackathonId, 'registrationCount', 1);
     }
   }
-
-  /**
-   * Validates that registration is currently open.
-   * Extracted for reuse and testability.
-   */
   _assertRegistrationWindowOpen(hackathon) {
     const now = new Date();
     if (now > hackathon.timeline.registrationClose) {

@@ -3,11 +3,6 @@ import HackathonSubmission from '../models/HackathonSubmission.js';
 import HackathonTeam from '../models/HackathonTeam.js';
 import Hackathon from '../models/Hackathon.js';
 import notificationManager from './notificationService.js';
-
-/**
- * HackathonSubmissionService — Versioned submission management.
- * Enforces deadline locking, draft mode, and full audit history.
- */
 class HackathonSubmissionService {
 
   async _assertTeamMembership(teamId, userId) {
@@ -53,14 +48,10 @@ class HackathonSubmissionService {
       submission.history.push(versionEntry);
       await submission.save();
     }
-
-    // Mark final submission
     if (!submission.isDraft) {
       submission.finalSubmittedAt = new Date();
       submission.finalSubmittedBy = userId;
       await submission.save();
-
-      // Notify organizer
       await notificationManager.notify({
         recipientId: hackathon.organizer,
         senderId: userId,

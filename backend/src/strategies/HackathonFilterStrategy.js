@@ -1,34 +1,8 @@
-/**
- * HackathonFilterStrategy — Strategy Pattern for query building.
- *
- * SOLID applied:
- *  - OCP: Each filter is a self-contained class. Adding a new filter (e.g., PrizeFilter)
- *         means creating a new class and registering it — existing code is never modified.
- *  - SRP: Each strategy has one job: decide if it applies, and apply itself.
- *  - DIP: HackathonService depends on this abstraction, not on raw if-chains.
- *
- * Design Pattern: Strategy Pattern
- *  Eliminates the open/closed violation in listHackathons where every new filter
- *  required modifying the service method.
- */
-
-// ─── Base Contract ────────────────────────────────────────────────────────────
 
 class FilterStrategy {
-  /**
-   * @param {Object} params - Raw query params from req.query
-   * @returns {boolean} Whether this filter should be applied
-   */
   applies(params) { return false; }
-
-  /**
-   * @param {Object} query  - The MongoDB query object to mutate
-   * @param {Object} params - Raw query params
-   */
   apply(query, params) {}
 }
-
-// ─── Concrete Strategies ──────────────────────────────────────────────────────
 
 class CategoryFilter extends FilterStrategy {
   applies({ category }) { return Boolean(category); }
@@ -86,19 +60,6 @@ class PrizePoolFilter extends FilterStrategy {
     query['prizes.0.amount'] = { $gte: Number(minPrize) };
   }
 }
-
-// ─── Filter Builder (Facade) ──────────────────────────────────────────────────
-
-/**
- * HackathonQueryBuilder — Facade over all registered filter strategies.
- *
- * Design Pattern: Facade + Strategy
- *  Callers call one method. Internally it asks each registered strategy
- *  whether it applies, and applies it if so.
- *
- * OCP: New filters are added by instantiating a new strategy class and
- *      pushing it to the `strategies` array. Zero changes to callers.
- */
 class HackathonQueryBuilder {
   constructor() {
     this.strategies = [
@@ -112,12 +73,6 @@ class HackathonQueryBuilder {
       new PrizePoolFilter(),
     ];
   }
-
-  /**
-   * Builds the base query and applies all matching strategies.
-   * @param {Object} params - req.query object
-   * @returns {Object} MongoDB filter document
-   */
   build(params = {}) {
     const query = {
       status:     { $in: ['published', 'ongoing'] },
@@ -133,8 +88,6 @@ class HackathonQueryBuilder {
 
     return query;
   }
-
-  /** Returns a sort document from a known sort key string. */
   buildSort(sortKey = 'createdAt') {
     const sortMap = {
       createdAt: { createdAt: -1 },

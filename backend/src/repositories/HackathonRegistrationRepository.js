@@ -1,14 +1,4 @@
 import HackathonRegistration from '../models/HackathonRegistration.js';
-
-/**
- * HackathonRegistrationRepository — Data Access Layer for HackathonRegistration.
- *
- * SOLID applied:
- *  - SRP: Owns exactly one thing — HackathonRegistration MongoDB interactions.
- *  - DIP: Registration business logic depends on this class, not on Mongoose.
- *
- * Design Pattern: Repository Pattern
- */
 class HackathonRegistrationRepository {
 
   async findByHackathonAndUser(hackathonId, userId) {

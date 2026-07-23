@@ -1,65 +1,65 @@
-import { notFound } from 'next/navigation';
+"use client";
+import React, { useState, useEffect } from 'react';
+import { notFound, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Trophy, Calendar, Users, Wifi, Globe, Clock, Cpu } from 'lucide-react';
+import { Trophy, Calendar, Users, Wifi, Globe, Clock, Cpu, Loader } from 'lucide-react';
+import { RegisterHackathonButton } from '@/Components/AuthActionButtons';
+import HackathonScrollNav from './HackathonScrollNav';
 
-const API_URL  = process.env.NEXT_PUBLIC_API_URL  || 'http://localhost:5000';
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:6001';
 
-async function getHackathon(slug) {
-  try {
-    const res = await fetch(`${API_URL}/api/public/hackathons/${slug}`, {
-      next: { revalidate: 120 },
-    });
-    if (!res.ok) return null;
-    return res.json();
-  } catch { return null; }
-}
+export default function PublicHackathonDetailPage() {
+  const params = useParams();
+  const slug = params?.slug;
 
-export async function generateMetadata({ params }) {
-  const { slug } = await params;
-  const h = await getHackathon(slug);
-  if (!h) return { title: 'Hackathon Not Found | ProConnect' };
+  const [h, setHackathon] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
-  const title = `${h.title} | ProConnect Hackathon`;
-  const description = h.tagline || h.description?.slice(0, 160) || '';
+  useEffect(() => {
+    if (!slug) return;
+    const fetchHackathon = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(`${API_URL}/api/public/hackathons/${slug}`);
+        if (res.ok) {
+          const data = await res.json();
+          setHackathon(data);
+        } else {
+          setError(true);
+        }
+      } catch (err) {
+        console.error('Failed to fetch hackathon:', err);
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchHackathon();
+  }, [slug]);
 
-  return {
-    title,
-    description,
-    openGraph: {
-      title, description, type: 'website',
-      url: `${SITE_URL}/hackathons/${slug}`,
-      images: [{ url: h.banner || '/default-hackathon.png', width: 1200, height: 630 }],
-    },
-    twitter: { card: 'summary_large_image', title, description, images: [h.banner || '/default-hackathon.png'] },
-  };
-}
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex justify-center items-center">
+        <Loader className="animate-spin text-blue-600 mr-2" size={32} />
+        <span className="text-lg text-slate-500">Loading hackathon details...</span>
+      </div>
+    );
+  }
 
-export default async function PublicHackathonDetailPage({ params }) {
-  const { slug } = await params;
-  const h = await getHackathon(slug);
-  if (!h) notFound();
-
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Event',
-    name: h.title,
-    description: h.description,
-    image: h.banner,
-    url: `${SITE_URL}/hackathons/${slug}`,
-    startDate: h.timeline?.hackathonStart,
-    endDate:   h.timeline?.hackathonEnd,
-    eventAttendanceMode: h.mode === 'online'
-      ? 'https://schema.org/OnlineEventAttendanceMode'
-      : 'https://schema.org/OfflineEventAttendanceMode',
-    isAccessibleForFree: h.isFree,
-    offers: { '@type': 'Offer', price: h.isFree ? 0 : h.registrationFee, priceCurrency: h.currency ?? 'INR' },
-    organizer: h.organizer ? {
-      '@type': 'Person',
-      name: h.organizer.name,
-      url: h.organizer.username ? `${SITE_URL}/u/${h.organizer.username}` : undefined,
-    } : undefined,
-  };
+  if (error || !h) {
+    return (
+      <div className="min-h-screen flex justify-center items-center">
+        <div className="text-center p-8 bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700">
+          <h2 className="text-2xl font-bold mb-2">Hackathon Not Found</h2>
+          <p className="text-slate-500 mb-6">The hackathon you're looking for doesn't exist or was removed.</p>
+          <Link href="/hackathons" className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700">
+            Browse Hackathons
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   const regClose  = h.timeline?.registrationClose ? new Date(h.timeline.registrationClose) : null;
   const hackStart = h.timeline?.hackathonStart    ? new Date(h.timeline.hackathonStart)    : null;
@@ -67,9 +67,6 @@ export default async function PublicHackathonDetailPage({ params }) {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-24">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-
-      {/* Banner */}
       <div className="relative w-full h-72 md:h-96 bg-gradient-to-br from-orange-500 to-pink-600 overflow-hidden">
         {h.banner && <img src={h.banner} alt={h.title} className="w-full h-full object-cover opacity-80" />}
         <div className="absolute inset-0 bg-black/40 flex flex-col justify-end p-8">
@@ -83,18 +80,21 @@ export default async function PublicHackathonDetailPage({ params }) {
         </div>
       </div>
 
-      <div className="max-w-5xl mx-auto px-4 md:px-8 mt-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <HackathonScrollNav hackathon={h} />
 
-          {/* Main */}
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6">
+      <div className="max-w-5xl mx-auto px-4 md:px-8 mt-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+          <div className="lg:col-span-2 space-y-8">
+            <div id="about" className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 scroll-mt-24">
               <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">About</h2>
-              <p className="text-slate-600 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{h.description}</p>
+              <div 
+                className="prose prose-slate dark:prose-invert max-w-none prose-headings:text-slate-900 dark:prose-headings:text-white prose-a:text-blue-600 dark:prose-a:text-blue-400"
+                dangerouslySetInnerHTML={{ __html: h.description }}
+              />
             </div>
 
             {h.tracks?.length > 0 && (
-              <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6">
+              <div id="tracks" className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 scroll-mt-24">
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">Tracks</h2>
                 <div className="space-y-3">
                   {h.tracks.map((t, i) => (
@@ -108,7 +108,7 @@ export default async function PublicHackathonDetailPage({ params }) {
             )}
 
             {h.prizes?.length > 0 && (
-              <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6">
+              <div id="prizes" className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 scroll-mt-24">
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">🏆 Prizes</h2>
                 <div className="space-y-2">
                   {h.prizes.map((p, i) => (
@@ -122,7 +122,7 @@ export default async function PublicHackathonDetailPage({ params }) {
             )}
 
             {h.faqs?.length > 0 && (
-              <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6">
+              <div id="faqs" className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 scroll-mt-24">
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-4">FAQs</h2>
                 <div className="space-y-4">
                   {h.faqs.map((f, i) => (
@@ -135,17 +135,12 @@ export default async function PublicHackathonDetailPage({ params }) {
               </div>
             )}
           </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 shadow-sm sticky top-6">
+          <div className="space-y-6 sticky top-24">
+            <div className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-6 shadow-sm">
               <p className="font-black text-2xl text-slate-900 dark:text-white mb-4">
                 {h.isFree ? <span className="text-green-600">Free</span> : `₹${h.registrationFee}`}
               </p>
-              <Link href={`/login?callbackUrl=/hackathons/${slug}`}
-                className="block w-full text-center px-6 py-3 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl transition-colors mb-4">
-                Register Now
-              </Link>
+              <RegisterHackathonButton hackathonId={h.id || h._id} slug={slug} soloAllowed={h.soloAllowed} />
               <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400">
                 {regClose  && <div className="flex items-center gap-2"><Calendar size={14} /> Reg. closes: {regClose.toLocaleDateString()}</div>}
                 {hackStart && <div className="flex items-center gap-2"><Clock size={14} /> Starts: {hackStart.toLocaleDateString()}</div>}

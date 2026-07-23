@@ -83,8 +83,6 @@ export default function CreateHackathonPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-
-          {/* Basic Info */}
           <Section title="Basic Information">
             <div>
               <label className={labelClass}>Title *</label>
@@ -119,8 +117,6 @@ export default function CreateHackathonPage() {
               <input className={inputClass} placeholder="React, Node.js, Python, ML" value={form.skills} onChange={e => update('skills', e.target.value)} />
             </div>
           </Section>
-
-          {/* Team Config */}
           <Section title="Team Configuration">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -159,8 +155,6 @@ export default function CreateHackathonPage() {
               </label>
             </div>
           </Section>
-
-          {/* Payment */}
           <Section title="Registration & Payment">
             <div className="flex gap-6">
               <label className="flex items-center gap-2 cursor-pointer">
@@ -179,8 +173,6 @@ export default function CreateHackathonPage() {
               </div>
             )}
           </Section>
-
-          {/* Timeline */}
           <Section title="Timeline">
             {[
               { key: 'registrationOpen',   label: 'Registration Opens *' },
@@ -195,8 +187,6 @@ export default function CreateHackathonPage() {
               </div>
             ))}
           </Section>
-
-          {/* Prizes */}
           <Section title="Prizes">
             {form.prizes.map((prize, i) => (
               <div key={i} className="grid grid-cols-2 gap-3 bg-slate-800/50 rounded-xl p-4 relative">
@@ -215,8 +205,6 @@ export default function CreateHackathonPage() {
               <Plus className="w-4 h-4" /> Add Prize
             </button>
           </Section>
-
-          {/* Rules */}
           <Section title="Rules">
             {form.rules.map((rule, i) => (
               <div key={i} className="flex gap-2">
@@ -232,8 +220,6 @@ export default function CreateHackathonPage() {
               <Plus className="w-4 h-4" /> Add Rule
             </button>
           </Section>
-
-          {/* Status */}
           <Section title="Visibility">
             <div className="flex gap-4">
               {['draft', 'published'].map(s => (
@@ -245,8 +231,6 @@ export default function CreateHackathonPage() {
             </div>
             <p className="text-slate-500 text-xs">Published hackathons are visible to all users. Drafts are only visible to you.</p>
           </Section>
-
-          {/* Submit */}
           <button
             type="submit"
             disabled={loading}

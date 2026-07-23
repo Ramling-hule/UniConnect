@@ -3,19 +3,6 @@ import HackathonRepository from '../repositories/HackathonRepository.js';
 import HackathonRegistrationRepository from '../repositories/HackathonRegistrationRepository.js';
 import HackathonTeam from '../models/HackathonTeam.js';
 import HackathonSubmission from '../models/HackathonSubmission.js';
-
-/**
- * HackathonAnalyticsService — Organizer dashboard analytics.
- *
- * SOLID applied:
- *  - SRP: Analytics aggregation is its own bounded concern, no longer inside HackathonService.
- *  - DIP: Uses HackathonRepository for hackathon data access.
- *  - OCP: New analytics methods can be added without touching existing ones.
- *
- * Design Pattern: Query Object Pattern
- *  Each aggregation is a named method that fully describes its intent.
- *  MongoDB aggregation pipelines are not leaked into other services.
- */
 class HackathonAnalyticsService {
 
   async getOrganizerDashboard(hackathonId, organizerId) {
@@ -52,8 +39,6 @@ class HackathonAnalyticsService {
       },
     };
   }
-
-  // ─── Private: Query Object Pattern ────────────────────────────────────────
 
   async _registrationsByStatus(hackathonObjectId) {
     return HackathonRegistrationRepository.aggregateByStatus(hackathonObjectId);

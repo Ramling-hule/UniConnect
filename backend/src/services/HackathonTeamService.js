@@ -4,20 +4,6 @@ import Hackathon from '../models/Hackathon.js';
 import Group from '../models/Group.js';
 import notificationManager from './notificationService.js';
 import { nanoid } from '../utils/slugify.js';
-
-/**
- * TeamChatRoomFactory — SRP: Owns the creation and management of chat rooms
- * for hackathon teams. Delegates to the existing Group model (reuse).
- *
- * SOLID applied:
- *  - SRP: Group/chat concerns extracted from HackathonTeamService.
- *  - OCP: If chat provider changes (e.g., from Group to a dedicated service),
- *         only this class changes. HackathonTeamService never changes.
- *  - DIP: HackathonTeamService depends on this abstraction.
- *
- * Design Pattern: Factory Pattern
- *  Encapsulates object creation so callers don't need to know Group's schema.
- */
 class TeamChatRoomFactory {
   async create(teamName, hackathonTitle, captainId) {
     return Group.create({
@@ -50,26 +36,7 @@ class TeamChatRoomFactory {
 }
 
 const chatRoomFactory = new TeamChatRoomFactory();
-
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * HackathonTeamService — Full team lifecycle management.
- *
- * SOLID applied (refactored):
- *  - SRP: Group/chat creation extracted to TeamChatRoomFactory.
- *         Authorization checks extracted to hackathonGuards.js middleware.
- *         This class only manages team state transitions.
- *  - DIP: Depends on TeamChatRoomFactory, not on Group model directly.
- *  - OCP: Adding new team operations is adding new methods. Existing methods untouched.
- *
- * Design Patterns:
- *  - Factory Pattern:           TeamChatRoomFactory for Group creation
- *  - Chain of Responsibility:   Guards in routes enforce auth before this service runs
- */
 class HackathonTeamService {
-
-  // ─── TEAM CREATION ─────────────────────────────────────────────────────────
 
   async createTeam(hackathonId, captainId, { name, role, rolesNeeded, techStack }) {
     const hackathon = await Hackathon.findById(hackathonId);
@@ -84,8 +51,6 @@ class HackathonTeamService {
       'members.user': captainId,
     });
     if (existingTeam) throw new AppError('You are already in a team for this hackathon', 409);
-
-    // Factory Pattern: chat room creation is NOT this class's concern
     const group = await chatRoomFactory.create(name, hackathon.title, captainId);
 
     const team = await HackathonTeam.create({
@@ -102,10 +67,7 @@ class HackathonTeamService {
     return team;
   }
 
-  // ─── INVITATIONS ───────────────────────────────────────────────────────────
-
   async inviteMember(team, hackathon, captainId, inviteeId, io) {
-    // `team` and `hackathon` passed in — guard pre-fetched them (avoids N+1)
     this._assertTeamNotLocked(team);
 
     if (team.members.length >= hackathon.maxTeamSize) {
@@ -158,8 +120,6 @@ class HackathonTeamService {
     invite.status = 'accepted';
     team.members.push({ user: userId, role: '' });
     if (team.members.length >= hackathon.maxTeamSize) team.isLookingForMembers = false;
-
-    // Factory handles chat membership — team service doesn't know about Group
     await chatRoomFactory.addMember(team.groupId, userId);
     await team.save();
 
@@ -184,8 +144,6 @@ class HackathonTeamService {
     await team.save();
     return { message: 'Invitation rejected' };
   }
-
-  // ─── MEMBERSHIP ────────────────────────────────────────────────────────────
 
   async leaveTeam(teamId, userId) {
     const team = await HackathonTeam.findById(teamId);
@@ -222,8 +180,6 @@ class HackathonTeamService {
     return team;
   }
 
-  // ─── DISCOVERY ─────────────────────────────────────────────────────────────
-
   async discoverTeams(hackathonId, { rolesNeeded, techStack, page = 1, limit = 20 } = {}) {
     const query = { hackathon: hackathonId, isLookingForMembers: true };
     if (rolesNeeded) query.rolesNeeded = { $in: [].concat(rolesNeeded) };
@@ -236,8 +192,6 @@ class HackathonTeamService {
       .limit(Number(limit))
       .lean();
   }
-
-  // ─── Private Guards ─────────────────────────────────────────────────────────
 
   _assertTeamNotLocked(team) {
     if (team.isLocked) throw new AppError('Team is locked after deadline', 400);

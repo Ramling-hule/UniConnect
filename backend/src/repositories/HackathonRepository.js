@@ -1,17 +1,4 @@
 import Hackathon from '../models/Hackathon.js';
-
-/**
- * HackathonRepository — Data Access Layer for the Hackathon entity.
- *
- * SOLID applied:
- *  - SRP: This class owns exactly one thing — Hackathon MongoDB interactions.
- *  - DIP: Services depend on this abstraction, not on Mongoose directly.
- *         In tests, swap this with an in-memory mock without touching service logic.
- *  - OCP: New query methods can be added here without modifying existing ones.
- *
- * Design Pattern: Repository Pattern
- *  Decouples persistence technology (MongoDB/Mongoose) from business logic.
- */
 class HackathonRepository {
 
   async findById(id) {
@@ -43,12 +30,6 @@ class HackathonRepository {
   async updateById(id, update, options = {}) {
     return Hackathon.findByIdAndUpdate(id, update, options);
   }
-
-  /**
-   * Paginated list with arbitrary filter + sort.
-   * The filter is built by the Strategy layer — this repository
-   * doesn't know or care what filters are applied.
-   */
   async findMany(filter, { sort, skip, limit, select } = {}) {
     let q = Hackathon.find(filter);
     if (sort)   q = q.sort(sort);
