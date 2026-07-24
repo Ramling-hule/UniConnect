@@ -22,14 +22,18 @@ function LoginContent() {
   
   const { isLoading, error, user, mfaRequired, tempMfaToken, tempUserId } = useSelector((state) => state.auth);
   
-  const [formData, setFormData] = useState({ email: '', password: '' });
+  const [formData, setFormData] = useState({ email: '', password: '', role: 'student' });
   const [mfaCode, setMfaCode] = useState('');
   const [isDark, setIsDark] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     if (user && !mfaRequired) {
-      router.push(callbackUrl);
+      if (user.role?.toLowerCase() === 'mentor' && callbackUrl === '/dashboard') {
+        router.push('/mentor-dashboard');
+      } else {
+        router.push(callbackUrl);
+      }
     }
   }, [user, mfaRequired, router, callbackUrl]);
 
@@ -86,7 +90,11 @@ function LoginContent() {
       });
       dispatch(authSuccess(data));
       toast.success('MFA verification successful!');
-      router.push(callbackUrl);
+      if (data.user?.role?.toLowerCase() === 'mentor' && callbackUrl === '/dashboard') {
+        router.push('/mentor-dashboard');
+      } else {
+        router.push(callbackUrl);
+      }
     } catch (err) {
       const msg = extractErrorMessage(err, 'MFA Verification failed');
       dispatch(authFailure(msg));
@@ -146,6 +154,34 @@ function LoginContent() {
           <>
             <form className="space-y-4" onSubmit={handleLogin}>
               <div>
+                <label className="text-xs font-bold uppercase opacity-70 mb-1 block">Login As</label>
+                <div className="flex space-x-4">
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="role" 
+                      value="student" 
+                      checked={formData.role === 'student'}
+                      onChange={handleChange}
+                      className="accent-brand-primary"
+                    />
+                    <span className="text-sm font-medium">Student</span>
+                  </label>
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="role" 
+                      value="mentor" 
+                      checked={formData.role === 'mentor'}
+                      onChange={handleChange}
+                      className="accent-brand-primary"
+                    />
+                    <span className="text-sm font-medium">Mentor</span>
+                  </label>
+                </div>
+              </div>
+
+              <div>
                 <label className="text-xs font-bold uppercase opacity-70 mb-1 block">Email</label>
                 <input 
                   name="email"
@@ -159,7 +195,10 @@ function LoginContent() {
               </div>
               
               <div>
-                <label className="text-xs font-bold uppercase opacity-70 mb-1 block">Password</label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-xs font-bold uppercase opacity-70 block">Password</label>
+                  <Link href="/forgot-password" className="text-xs font-bold opacity-70 hover:opacity-100 text-brand-primary underline">Forgot Password?</Link>
+                </div>
                 <div className="relative">
                   <input 
                     name="password"

@@ -24,7 +24,13 @@ export default function RegisterPage() {
   const inputRefs = useRef([]);
 
   useEffect(() => {
-    if (user) router.push('/dashboard');
+    if (user) {
+      if (user.role?.toLowerCase() === 'mentor') {
+        router.push('/mentor-dashboard');
+      } else {
+        router.push('/dashboard');
+      }
+    }
     return () => dispatch(resetAuthStatus());
   }, [user, router, dispatch]);
 
@@ -33,7 +39,8 @@ export default function RegisterPage() {
     username: '',
     institute: '',
     email: '',
-    password: ''
+    password: '',
+    role: 'student'
   });
 
   const handleChange = (e) => {
@@ -72,7 +79,11 @@ export default function RegisterPage() {
         router.push('/login');
       } else {
         toast.success('Welcome!');
-        router.push('/dashboard');
+        if (data.user?.role?.toLowerCase() === 'mentor') {
+          router.push('/mentor-dashboard');
+        } else {
+          router.push('/dashboard');
+        }
       }
     } catch (err) {
       const msg = extractErrorMessage(err, 'Google Sign In failed');
@@ -140,6 +151,33 @@ export default function RegisterPage() {
         {step === 1 && (
           <>
             <form className="space-y-4" onSubmit={handleRegister}>
+              <div>
+                <label className="text-xs font-bold uppercase opacity-70 mb-1 block">I am a</label>
+                <div className="flex space-x-4">
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="role" 
+                      value="student" 
+                      checked={formData.role === 'student'}
+                      onChange={handleChange}
+                      className="accent-brand-primary"
+                    />
+                    <span className="text-sm font-medium">Student</span>
+                  </label>
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input 
+                      type="radio" 
+                      name="role" 
+                      value="mentor" 
+                      checked={formData.role === 'mentor'}
+                      onChange={handleChange}
+                      className="accent-brand-primary"
+                    />
+                    <span className="text-sm font-medium">Mentor</span>
+                  </label>
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                   <div>
                       <label className="text-xs font-bold uppercase opacity-70 mb-1 block">Full Name</label>
