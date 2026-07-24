@@ -27,8 +27,30 @@ class MentorBusinessService {
   }
 
   async getMentorProfile(userId) {
-    const mentor = await Mentor.findOne({ user: userId }).populate('user', 'name email profilePicture username');
-    if (!mentor) throw new AppError('Mentor profile not found.', 404);
+    let mentor = await Mentor.findOne({ user: userId }).populate('user', 'name email profilePicture username');
+    if (!mentor) {
+      const User = (await import('../models/User.js')).default;
+      const user = await User.findById(userId);
+      if (user && (user.role === 'mentor' || user.role === 'MENTOR')) {
+        mentor = new Mentor({ 
+          user: userId, 
+          status: 'approved',
+          headline: 'Mentor',
+          about: 'I am a mentor at ProConnect.',
+          company: 'ProConnect',
+          role: 'Mentor',
+          yearsOfExperience: 0 
+        });
+        await mentor.save();
+        await new Availability({
+          mentor: mentor._id,
+          weeklySchedule: this._defaultWeeklySchedule(),
+        }).save();
+        mentor = await Mentor.findOne({ user: userId }).populate('user', 'name email profilePicture username');
+      } else {
+        throw new AppError('Mentor profile not found.', 404);
+      }
+    }
     return mentor;
   }
 
@@ -45,25 +67,34 @@ class MentorBusinessService {
   async createService(userId, serviceData) {
     const mentor = await Mentor.findOne({ user: userId });
     if (!mentor) throw new AppError('Only mentors can create services.', 403);
+    if (mentor.status !== 'approved') {
+      throw new AppError('Your mentor profile must be approved to create services.', 403);
+    }
 
     const service = new MentorServiceModel({ mentor: mentor._id, ...serviceData });
     await service.save();
     return service;
   }
 
-  async updateService(serviceId, updates) {
+  async updateService(serviceId, userId, updates) {
+    const mentor = await Mentor.findOne({ user: userId });
+    if (!mentor) throw new AppError('Mentor profile not found.', 404);
+
     const service = await MentorServiceModel.findOneAndUpdate(
-      { _id: serviceId },
+      { _id: serviceId, mentor: mentor._id },
       { $set: updates },
       { new: true, runValidators: true },
     );
-    if (!service) throw new AppError('Service not found.', 404);
+    if (!service) throw new AppError('Service not found or unauthorized.', 404);
     return service;
   }
 
-  async deleteService(serviceId) {
-    const service = await MentorServiceModel.findOneAndDelete({ _id: serviceId });
-    if (!service) throw new AppError('Service not found.', 404);
+  async deleteService(serviceId, userId) {
+    const mentor = await Mentor.findOne({ user: userId });
+    if (!mentor) throw new AppError('Mentor profile not found.', 404);
+
+    const service = await MentorServiceModel.findOneAndDelete({ _id: serviceId, mentor: mentor._id });
+    if (!service) throw new AppError('Service not found or unauthorized.', 404);
     return service;
   }
 
@@ -89,7 +120,14 @@ class MentorBusinessService {
   }
 
   async getMentors({ search, skills, company, sort } = {}) {
-    const query = { status: 'approved' };
+    // 1. Find all mentors who have at least one active service
+    const activeServices = await MentorServiceModel.find({ isActive: true }).select('mentor');
+    const mentorsWithServices = [...new Set(activeServices.map(s => s.mentor.toString()))];
+
+    const query = { 
+      status: 'approved',
+      _id: { $in: mentorsWithServices }
+    };
 
     if (search) {
       query.$or = [
@@ -118,8 +156,29 @@ class MentorBusinessService {
     return mentor;
   }
   async getMentorDashboard(userId) {
-    const mentor = await Mentor.findOne({ user: userId });
-    if (!mentor) throw new AppError('Mentor profile not found.', 404);
+    let mentor = await Mentor.findOne({ user: userId });
+    if (!mentor) {
+      const User = (await import('../models/User.js')).default;
+      const user = await User.findById(userId);
+      if (user && (user.role === 'mentor' || user.role === 'MENTOR')) {
+        mentor = new Mentor({ 
+          user: userId, 
+          status: 'approved',
+          headline: 'Mentor',
+          about: 'I am a mentor at ProConnect.',
+          company: 'ProConnect',
+          role: 'Mentor',
+          yearsOfExperience: 0 
+        });
+        await mentor.save();
+        await new Availability({
+          mentor: mentor._id,
+          weeklySchedule: this._defaultWeeklySchedule(),
+        }).save();
+      } else {
+        throw new AppError('Mentor profile not found.', 404);
+      }
+    }
 
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
