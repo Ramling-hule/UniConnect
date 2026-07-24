@@ -4,10 +4,10 @@ import { useSelector, useDispatch } from "react-redux";
 import { toggleTheme } from "@/redux/features/themeSlice";
 import { setActiveTab } from "@/redux/features/navSlice";
 import { setNotifications, addNotification } from "@/redux/features/notificationSlice";
-import { logout } from "@/redux/features/authSlice";
+import { logout, openAuthModal } from "@/redux/features/authSlice";
 import RightSidebar from "@/Components/RightSidebar";
 import CopilotPanel from "@/Components/CopilotPanel";
-import { Home, Search, Users, Trophy, Layers, Sun, Moon, Sparkles, Briefcase, Target } from "lucide-react";
+import { Home, Search, Users, Trophy, Layers, Sun, Moon, Sparkles, Briefcase, Target, Compass, UserPlus } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import ChatWindow from "@/Components/ChatWindow";
@@ -26,15 +26,30 @@ export default function DashboardLayout({ children }) {
   const [isCopilotOpen, setIsCopilotOpen] = useState(false);
   const pathname = usePathname();
 
-  const navItems = [
-    { id: "home",        label: "Home",        icon: Home, href: "/dashboard" },
-    { id: "discover",   label: "Discover",    icon: Search, href: "/discover" },
-    { id: "connections",label: "Connections", icon: Users, href: "/connections" },
-    { id: "hackathons", label: "Hackathons",  icon: Trophy, href: "/hackathons" },
-    { id: "groups",     label: "Groups",      icon: Layers, href: "/groups" },
-    { id: "mentors",    label: "Mentors",     icon: Briefcase, href: "/mentors" },
-    { id: "pods",       label: "Pods",        icon: Target, href: "/pods" },
-  ];
+  const isMentor = user?.role?.toLowerCase() === 'mentor';
+  let navItems = [];
+
+  if (isMentor) {
+    navItems = [
+      { id: "mentor-dashboard", label: "Mentor Dashboard", icon: Briefcase, href: "/mentor-dashboard" },
+      { id: "discover", label: "Discover", icon: Search, href: "/discover" },
+      { id: "home", label: "Feed", icon: Home, href: "/dashboard" },
+    ];
+  } else {
+    navItems = [
+      { id: "home", label: "Home", icon: Home, href: "/dashboard" },
+      { id: "discover", label: "Discover", icon: Search, href: "/discover" },
+    ];
+    if (user) {
+      navItems.push({ id: "my-activity", label: "My Activity", icon: Layers, href: "/my-activity" });
+    }
+    navItems.push(
+      { id: "hackathons", label: "Hackathons", icon: Trophy, href: "/hackathons" },
+      { id: "find-teammates", label: "Find Teammates", icon: UserPlus, href: "/find-teammates" },
+      { id: "mentors", label: "Mentors", icon: Briefcase, href: "/mentors" },
+      { id: "career-copilot", label: "Career Copilot", icon: Compass, href: "/career-copilot" }
+    );
+  }
 
   useEffect(() => {
     if (user) {
@@ -147,7 +162,7 @@ export default function DashboardLayout({ children }) {
             <nav className="space-y-0.5">
               {navItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = pathname === item.href;
+                const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
                 const cls = `${navItemBase} ${isActive ? navItemActive : navItemInactive}`;
 
                 return (
@@ -158,7 +173,13 @@ export default function DashboardLayout({ children }) {
                 );
               })}
               <button
-                onClick={() => setIsCopilotOpen(true)}
+                onClick={() => {
+                  if (!user) {
+                    dispatch(openAuthModal("Please sign in to access AI Copilot"));
+                  } else {
+                    setIsCopilotOpen(true);
+                  }
+                }}
                 className={`${navItemBase} mt-2`}
                 style={{
                   background: isCopilotOpen
@@ -224,7 +245,13 @@ export default function DashboardLayout({ children }) {
               </Link>
             );
           })}
-          <button onClick={() => setIsCopilotOpen(true)} className="flex flex-col items-center gap-1 px-2 py-1">
+          <button onClick={() => {
+            if (!user) {
+              dispatch(openAuthModal("Please sign in to access AI Copilot"));
+            } else {
+              setIsCopilotOpen(true);
+            }
+          }} className="flex flex-col items-center gap-1 px-2 py-1">
             <Sparkles size={20} style={{ color: isCopilotOpen ? "#818CF8" : textSecondary }} />
             <span className="text-[10px] font-semibold" style={{ color: isCopilotOpen ? "#818CF8" : textSecondary }}>
               Copilot
